@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/quadqr", "crates/quadqr-wasm", "crates/quadqr-native", "demo"]
+default-members = ["crates/quadqr", "crates/quadqr-wasm", "crates/quadqr-native", "demo"]
+
+[workspace.package]
+edition = "2021"
+license = "AGPL-3.0-only"
+authors = ["Akansh Sirohi"]
+repository = "https://github.com/akanshSirohi/QuadQR-SDK"
+
+[workspace.dependencies]
+quadqr = { path = "crates/quadqr" }
+image = { version = "0.25", default-features = false }
+thiserror = "2"
+sha2 = "0.10"
+rand = "0.8"
+aes-gcm = "0.10"
+pbkdf2 = "0.12"
+ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8"] }
+flate2 = "1"
+brotli = "8"
+zeroize = "1"
+rayon = "1.10"

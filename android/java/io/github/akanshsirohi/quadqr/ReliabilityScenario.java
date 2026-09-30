@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class ReliabilityScenario {private final JSONObject r;ReliabilityScenario(JSONObject r){this.r=r;}public String getName(){return r.optString("name");}public String getCategory(){return r.optString("category");}public boolean isPassed(){return r.optBoolean("passed");}public double getElapsedMs(){return r.optDouble("elapsedMs");}public int getCorrectedSymbols(){return r.optInt("correctedSymbols");}public int getErasureSymbols(){return r.optInt("erasureSymbols");}public String getScanPath(){return r.optString("scanPath");}}

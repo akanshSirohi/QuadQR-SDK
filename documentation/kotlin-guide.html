@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="QuadQR SDK documentation for Rust, Android, Flutter, and experimental WebAssembly."><title>Kotlin API | QuadQR documentation</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css"><link rel="icon" href="assets/quadqr_ic.svg" type="image/svg+xml"></head>
+<body><header class="topbar"><button class="icon-button menu-button" id="menu-button" aria-label="Open navigation" type="button">☰</button><a class="brand" href="index.html"><img class="brand-icon" src="assets/quadqr_ic.svg" alt="">QuadQR <small>SDK documentation</small></a><nav class="top-links" aria-label="Top links"><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR-SDK">Repository</a><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR">Original JS</a><button class="icon-button" id="theme-button" aria-label="Toggle color theme" type="button">◐</button></nav></header>
+<div class="shell"><aside class="sidebar" id="site-nav" aria-label="Documentation navigation"></aside><main class="content"><article class="article"><header><span class="eyebrow">Source guide</span><h1>Kotlin API</h1><p class="lead">The complete Kotlin guide for the Android AAR.</p></header><p>QuadQR's Android wrapper is directly usable from Kotlin with typed enums, builders and result objects. Optional Kotlin extension helpers are included for compact configuration blocks.</p>
+<h2 id="setup">Setup</h2>
+<pre><code class="language-kotlin">import io.github.akanshsirohi.quadqr.*
+
+val quadQR = QuadQR.getInstance()
+</code></pre>
+<h2 id="encode-text">Encode text</h2>
+<pre><code class="language-kotlin">val code = quadQR.encodeText(&quot;Hello Android&quot;)
+</code></pre>
+<p>With options:</p>
+<pre><code class="language-kotlin">val code = quadQR.encodeText(
+    &quot;Hello Android&quot;,
+    EncodeOptions.builder()
+        .ecc(EccLevel.M)
+        .highDensity(false)
+        .compression(CompressionMode.AUTO)
+        .build()
+)
+
+println(code.version)
+println(code.crc32)
+</code></pre>
+<p>If you include <code>QuadQRKtx.kt</code>, the configuration-block overload is available:</p>
+<pre><code class="language-kotlin">val code = quadQR.encodeText(&quot;Hello Android&quot;) {
+    ecc(EccLevel.M)
+    highDensity(true)
+    compression(CompressionMode.SMART)
+}
+</code></pre>
+<h2 id="render-png">Render PNG</h2>
+<pre><code class="language-kotlin">val png: ByteArray = quadQR.renderPng(
+    code,
+    RenderOptions.builder()
+        .imageSize(720)
+        .quietZone(4)
+        .style(RenderStyle.CLASSIC)
+        .build()
+)
+</code></pre>
+<p>With a logo:</p>
+<pre><code class="language-kotlin">val render = RenderOptions.builder()
+    .imageSize(720)
+    .logo(
+        LogoOptions.builder()
+            .autoSize()
+            .clearBackground(true)
+            .build()
+    )
+    .build()
+
+val png = quadQR.renderPng(code, render, logoBytes)
+</code></pre>
+<h2 id="scan-an-image">Scan an image</h2>
+<pre><code class="language-kotlin">val scan = quadQR.scanImage(imageBytes)
+println(scan.text)
+println(scan.correctedSymbols)
+println(scan.scanPath)
+</code></pre>
+<p>Custom scanner:</p>
+<pre><code class="language-kotlin">val scan = quadQR.scanImage(
+    imageBytes,
+    ScanOptions.builder()
+        .finderRecovery(true)
+        .rotationRecovery(true)
+        .softDecoding(true)
+        .build()
+)
+</code></pre>
+<p>Or with the Kotlin extension:</p>
+<pre><code class="language-kotlin">val scan = quadQR.scanImage(imageBytes) {
+    finderRecovery(true)
+    rotationRecovery(true)
+    softDecoding(true)
+}
+</code></pre>
+<h2 id="camera-frames">Camera frames</h2>
+<pre><code class="language-kotlin">val result = quadQR.scanRgba(
+    rgba,
+    width,
+    height,
+    ScanOptions.builder()
+        .finderRecovery(true)
+        .rotationRecovery(true)
+        .build()
+)
+</code></pre>
+<p>For CameraX, feed analysis frames from a background executor. Keep only one active scan per frame source unless your application deliberately manages parallel work.</p>
+<h2 id="encryption">Encryption</h2>
+<pre><code class="language-kotlin">val security = SecurityOptions.password(&quot;my-password&quot;)
+
+val secureCode = quadQR.encodeText(
+    &quot;Private payload&quot;,
+    EncodeOptions.builder()
+        .security(security)
+        .compression(CompressionMode.AUTO)
+        .build()
+)
+</code></pre>
+<p>Decrypt after scanning:</p>
+<pre><code class="language-kotlin">val scan = quadQR.scanImage(imageBytes)
+if (scan.requiresDecryption()) {
+    val payload = quadQR.decrypt(scan, security)
+    println(payload.text)
+}
+</code></pre>
+<p>Raw key:</p>
+<pre><code class="language-kotlin">val key = quadQR.generateRaw256Key()
+val security = SecurityOptions.rawKey(key.bytes)
+</code></pre>
+<h2 id="signing">Signing</h2>
+<pre><code class="language-kotlin">val keys = quadQR.generateSigningKeyPair()
+
+val signing = SigningOptions.builder(keys.privateKeySeed)
+    .embedPublicKey(false)
+    .build()
+
+val signedCode = quadQR.encodeText(
+    &quot;Signed message&quot;,
+    EncodeOptions.builder()
+        .signing(signing)
+        .build()
+)
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-kotlin">val scan = quadQR.scanImage(imageBytes)
+val valid = quadQR.verifySignature(
+    scan,
+    keys.publicKey,
+    false
+)
+</code></pre>
+<p>Encrypted + signed:</p>
+<pre><code class="language-kotlin">val payload = quadQR.decryptAndVerify(
+    scan,
+    security,
+    keys.publicKey,
+    false
+)
+
+if (payload.isVerified) {
+    println(payload.text)
+}
+</code></pre>
+<h2 id="matrix-operations">Matrix operations</h2>
+<pre><code class="language-kotlin">val decoded = quadQR.decodeMatrix(code.matrix)
+val rotated = quadQR.rotateMatrix(code.matrix, 1)
+val checksum = quadQR.crc32(decoded.payload)
+</code></pre>
+<h2 id="capacity-planning">Capacity planning</h2>
+<pre><code class="language-kotlin">val capacity = quadQR.capacity(
+    10,
+    EccLevel.M,
+    CellEncoding.HIGH_DENSITY
+)
+
+val plan = quadQR.calculateCapacityPlan(
+    data,
+    EncodeOptions.builder()
+        .ecc(EccLevel.M)
+        .highDensity(true)
+        .compression(CompressionMode.AUTO)
+        .build()
+)
+</code></pre>
+<h2 id="print-guidance">Print guidance</h2>
+<pre><code class="language-kotlin">val guidance = quadQR.getPrintGuidance(
+    code,
+    PrintOptions(
+        4,
+        35.0,
+        300.0,
+        0.40
+    )
+)
+</code></pre>
+<h2 id="reliability">Reliability</h2>
+<pre><code class="language-kotlin">val report = quadQR.runReliabilityLab(
+    png,
+    code.crc32,
+    ReliabilitySuite.FULL,
+    ScanOptions.defaults()
+)
+
+println(report.score)
+println(report.rating)
+</code></pre>
+<h2 id="error-handling">Error handling</h2>
+<pre><code class="language-kotlin">try {
+    val result = quadQR.scanImage(imageBytes)
+} catch (e: QuadQRException) {
+    Log.e(&quot;QuadQR&quot;, &quot;Scan failed&quot;, e)
+}
+</code></pre>
+<p>Use coroutines or your normal background dispatcher for continuous camera scanning and heavier reliability operations.</p>
+<h2 id="complete-kotlin-method-map">Complete Kotlin method map</h2>
+<p>The same <code>QuadQR</code> instance provides runtime/version information, capacity planning, text and binary encoding, matrix decoding, compression, encryption, signing, PNG/SVG rendering, logo safety tools, image scanning, RGBA camera scanning, rectification and reliability analysis.</p>
+<p>The complete callable surface is:</p>
+<pre><code class="language-text">version / getVersionInfo
+capacity / calculateCapacityPlan
+encodeText / encodeBytes
+decodeMatrix / decodePayload / rotateMatrix / crc32
+compress / decompress
+generateRaw256Key / inspectSecurePayload / decrypt
+generateSigningKeyPair / deriveSigningKeyId / signingSeedFromPkcs8
+verifySignature / decryptAndVerify
+renderPng / renderSvg / estimateSafeLogoSize / findMaxSafeLogoSize / getPrintGuidance
+scanImage / scanRgba / debugScanRgba / rectifyImage
+applyStressDistortion / runImageStressTest / runReliabilityLab
+runPerspectiveSweep / assessScanability
+</code></pre>
+<p>For advanced decoding, <code>DecodeOptions.Builder</code> also accepts confidence and alternative-cell matrices. This is useful when your own sampling pipeline has per-cell confidence information.</p>
+<h3 id="android-live-camera-performance">Android live-camera performance</h3>
+<p>RGBA camera scans now use an adaptive fast/deep cadence. Normal frames disable finder and rotation recovery; after three consecutive misses, every fourth attempt uses the full recovery stack. The full scanner working image is capped to 960 pixels on its longest edge by default. Set <code>workingMaxDimension</code> in <code>ScanOptions</code> to override the cap, or set it to <code>0</code> to keep the original frame size. Still-image <code>scanImage</code> behavior is unchanged.</p>
+<h2 id="direct-yuv_420_888-camera-scanning">Direct YUV_420_888 camera scanning</h2>
+<p>For live CameraX/Camera2 frames, prefer <code>QuadQR.get().scanYuv420(...)</code> with the Y/U/V plane bytes and their row/pixel strides. This avoids a full application-side RGBA conversion and keeps the native live-camera working image bounded.</p><footer class="footer"><span>QuadQR SDK · AGPL-3.0-only</span><span><a href="contributing.html">Contribute</a> · <a href="license.html">License</a></span></footer></article></main></div><script src="vendor/highlightjs/highlight.min.js"></script><script src="vendor/highlightjs/dart.min.js"></script><script src="vendor/highlightjs/dos.min.js"></script><script src="vendor/highlightjs/http.min.js"></script><script src="app.js"></script></body></html>

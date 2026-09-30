@@ -1,0 +1,40 @@
+[package]
+name = "quadqr-wasm"
+version = "0.1.0"
+description = "WebAssembly bindings for the Rust QuadQR engine"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Keep the first browser build deterministic and avoid wasm-opt/Binaryen
+# feature-version issues around shared memory/threads. Rust's release profile
+# still performs LLVM optimization. We can enable a tuned wasm-opt pass later
+# after the threaded browser build is established in CI.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[features]
+default = []
+threads = ["quadqr/parallel", "dep:wasm-bindgen-rayon"]
+
+# Keeping browser-only dependencies target-scoped means normal native workspace
+# checks remain lightweight and do not try to compile the WebAssembly bridge as
+# a host library.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+quadqr = { path = "../quadqr", default-features = false, features = ["image", "compression", "security"] }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+image = { workspace = true }
+console_error_panic_hook = "0.1"
+# QuadQR security uses rand 0.8/getrandom 0.2. Enabling the JS backend here is
+# unified into that dependency graph for wasm32 builds.
+getrandom = { version = "0.2", features = ["js"] }
+wasm-bindgen-rayon = { git = "https://github.com/RReverser/wasm-bindgen-rayon", rev = "090b798dd762237cb4e8952040dd2b0aeb6061fb", features = ["no-bundler"], optional = true }

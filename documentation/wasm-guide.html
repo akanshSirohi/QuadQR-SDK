@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="QuadQR SDK documentation for Rust, Android, Flutter, and experimental WebAssembly."><title>WASM package | QuadQR documentation</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css"><link rel="icon" href="assets/quadqr_ic.svg" type="image/svg+xml"></head>
+<body><header class="topbar"><button class="icon-button menu-button" id="menu-button" aria-label="Open navigation" type="button">☰</button><a class="brand" href="index.html"><img class="brand-icon" src="assets/quadqr_ic.svg" alt="">QuadQR <small>SDK documentation</small></a><nav class="top-links" aria-label="Top links"><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR-SDK">Repository</a><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR">Original JS</a><button class="icon-button" id="theme-button" aria-label="Toggle color theme" type="button">◐</button></nav></header>
+<div class="shell"><aside class="sidebar" id="site-nav" aria-label="Documentation navigation"></aside><main class="content"><article class="article"><header><span class="eyebrow">Source guide</span><h1>WASM package</h1><p class="lead">Build and use the experimental Rust-backed JavaScript package.</p></header><p>This package explores the <code>quadqr-js</code> JavaScript API with the codec, compression, security and scanner engine backed by the Rust QuadQR implementation. It is experimental; the <a href="https://github.com/akanshSirohi/QuadQR">original JavaScript package</a> remains the recommended web implementation.</p>
+<p>The compatibility target is <code>quadqr-js</code> <strong>1.5.7</strong> at commit <code>0fdbab50c0ed4329017e201ef535c99730dc58ec</code>.</p>
+<p>The package is marked <code>private</code> while this port is being validated so it cannot be published accidentally. Remove <code>private: true</code> only when you intentionally replace the npm package.</p>
+<h2 id="one-time-setup">One-time setup</h2>
+<p>From <code>packages/quadqr-js</code>:</p>
+<pre><code class="language-bash">npm run setup:wasm
+</code></pre>
+<p>This installs the normal <code>wasm32-unknown-unknown</code> target, the fixed threaded nightly toolchain with <code>rust-src</code>, and <code>wasm-pack</code> if it is missing.</p>
+<h2 id="run-the-full-wasm-demo">Run the full WASM demo</h2>
+<p>From the repository root on Windows:</p>
+<pre><code class="language-bat">run-wasm-demo.bat
+</code></pre>
+<p>On macOS/Linux:</p>
+<pre><code class="language-bash">./run-wasm-demo.sh
+</code></pre>
+<p>The one-click flow performs:</p>
+<pre><code class="language-text">static source validation
+        ↓
+single-thread browser WASM
+        ↓
+threaded Rayon browser WASM
+        ↓
+Node WASM
+        ↓
+generated-artifact validation
+        ↓
+API smoke tests
+        ↓
+COOP/COEP demo server
+</code></pre>
+<p>Then open:</p>
+<pre><code class="language-text">http://127.0.0.1:8080/demo/
+</code></pre>
+<h2 id="manual-commands">Manual commands</h2>
+<pre><code class="language-bash">npm run sync:demo  # optional: refresh the pinned reference demo
+npm run check:source
+npm run build:wasm
+npm run verify:wasm
+npm run check
+npm run serve
+</code></pre>
+<p><code>npm run sync:demo</code> only refreshes <code>demo/styles.css</code> from the pinned QuadQR 1.5.7 commit. The adapted HTML, application, and worker files remain local.</p>
+<h2 id="wasm-backends">WASM backends</h2>
+<ul>
+<li><code>wasm/single</code>: stable Rust browser fallback without Rayon</li>
+<li><code>wasm/threaded</code>: the same Rust scanner with Rayon + WebAssembly threads</li>
+<li><code>wasm/node</code>: Node.js WASM build</li>
+</ul>
+<p>The threaded build follows the current <code>wasm-bindgen-rayon</code> no-bundler setup. It uses a fixed nightly and rebuilds the wasm32 standard library with atomics/shared memory enabled.</p>
+<h2 id="camera-performance-model">Camera performance model</h2>
+<p>JavaScript owns the camera and browser lifecycle. Decoding stays inside Rust/WASM.</p>
+<pre><code class="language-text">Camera
+  ↓
+newest available frame only
+  ↓
+dedicated camera Web Worker
+  ↓
+threaded WASM when supported
+  ↓
+Rust scan_rgba()
+  ↓
+Rayon finder/recovery/geometry work
+</code></pre>
+<p>Frames are not queued while a scan is running. This preserves the same design goal as the fast native Rust demo: parallelize work inside the newest frame, not multiple stale frames.</p>
+<h2 id="cross-origin-isolation">Cross-origin isolation</h2>
+<p>True browser Rayon needs <code>SharedArrayBuffer</code>, which needs a cross-origin-isolated page.</p>
+<p>The included local server sends:</p>
+<pre><code class="language-http">Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+</code></pre>
+<p>The synchronized demo also loads <code>coi-serviceworker.js</code> as a fallback for secure static hosts such as GitHub Pages where response headers cannot be configured directly.</p>
+<p>If browser threading is unavailable, <code>initWasm()</code> automatically falls back to the single-thread WASM build without changing the public QuadQR API.</p>
+<h2 id="runtime-selection">Runtime selection</h2>
+<pre><code class="language-js">await initWasm();                    // automatic
+await initWasm({ threads: true });  // require threaded WASM
+await initWasm({ threads: false }); // force baseline WASM
+</code></pre>
+<p><code>startCameraScanner()</code> uses its own worker and requests the threaded backend automatically.</p>
+<h2 id="compatibility-status">Compatibility status</h2>
+<p>The ESM/browser API preserves the current names and call shapes used by the QuadQR demo, including encoding, matrix decoding, image/camera scanning, rendering, compression, security, Ed25519 signing, print guidance, scanability, Reliability Lab and perspective helpers.</p>
+<p>The old prebuilt CommonJS distribution and immediate classic-script <code>quadqr.min.js</code> global are not the focus of this test port yet. Validate the browser/ESM WASM replacement first before replacing the published package distribution.</p>
+<h2 id="build-artifacts">Build artifacts</h2>
+<p>Generated <code>.wasm</code> and JavaScript glue are not committed. <code>run-wasm-demo.bat</code> / <code>run-wasm-demo.sh</code> performs setup, source checks, all WASM builds, generated-artifact checks, API smoke tests, and then starts the isolated local server.</p>
+<p>If you need to separate a baseline WASM problem from a threads-specific problem, set <code>QUADQR_SKIP_THREADED=1</code> and run <code>npm run verify</code> first.</p>
+<h2 id="browser-diagnostics">Browser diagnostics</h2>
+<p>If the full demo does not start correctly, open <code>http://127.0.0.1:8080/demo/browser-smoke.html</code>. It tests baseline WASM import, encode, matrix decode, render and image scanning independently. Threaded Rayon is tested only when you press the dedicated button.</p><footer class="footer"><span>QuadQR SDK · AGPL-3.0-only</span><span><a href="contributing.html">Contribute</a> · <a href="license.html">License</a></span></footer></article></main></div><script src="vendor/highlightjs/highlight.min.js"></script><script src="vendor/highlightjs/dart.min.js"></script><script src="vendor/highlightjs/dos.min.js"></script><script src="vendor/highlightjs/http.min.js"></script><script src="app.js"></script></body></html>

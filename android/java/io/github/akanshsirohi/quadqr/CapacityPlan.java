@@ -1,0 +1,5 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class CapacityPlan {
+    private final JSONObject raw; CapacityPlan(JSONObject raw){this.raw=raw;} public int getSourceBytes(){return raw.optInt("sourceBytes");} public int getEncodedBytes(){return raw.optInt("encodedBytes");} public int getStoredBytes(){return raw.optInt("storedBytes");} public String getCompression(){return raw.optString("compression","none");} public boolean isCompressed(){return raw.optBoolean("compressed");} public int getQuadQrVersion(){return raw.optInt("quadqrVersion");} public int getQuadQrSize(){return raw.optInt("quadqrSize");} public int getQuadQrCapacityBytes(){return raw.optInt("quadqrCapacityBytes");} public int getRemainingBytes(){return raw.optInt("remainingBytes");} public double getUtilizationPercent(){return raw.optDouble("utilizationPercent");} public int getStandardQrVersion(){return raw.optInt("standardQrVersion");} public double getMatrixWidthSavingsPercent(){return raw.optDouble("matrixWidthSavingsPercent");}
+}

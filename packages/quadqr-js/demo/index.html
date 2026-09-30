@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>QuadQR Rust/WASM Demo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">RUST + WEBASSEMBLY BACKEND</p>
+      <h1>QuadQR</h1>
+      <p class="sub">The same QuadQR browser demo and public JavaScript API, now backed by the native Rust engine. Camera scanning uses the Rust/WASM scanner with the same recovery pipeline as the native port.</p>
+    </div>
+    <div class="badge"><span>QuadQR</span><span>Rust/WASM</span><span>Format v6</span></div>
+  </header>
+
+  <nav class="tabs" aria-label="Demo sections">
+    <button class="tab active" data-tab="lab" type="button">Generator</button>
+    <button class="tab" data-tab="camera" type="button">Camera</button>
+    <button class="tab" data-tab="reliability" type="button">Reliability Lab</button>
+    <button class="tab" data-tab="benchmark" type="button">Benchmark</button>
+  </nav>
+
+  <section id="labView" class="tab-view active" data-view="lab">
+    <div class="grid">
+      <article class="panel generator-panel">
+        <div class="panel-head"><div><p class="kicker">Generator</p><h2>Create QuadQR code</h2></div><span id="verificationPill" class="pill neutral">Not generated</span></div>
+        <label for="payload">Payload</label>
+        <textarea id="payload" rows="8">QuadQR: higher-capacity RGBW matrix code with Spectrum ECC recovery.</textarea>
+        <div class="row three generator-options core-options">
+          <label class="field"><span>Version</span><select id="version"><option value="auto">Auto smallest</option></select></label>
+          <label class="field"><span>ECC profile</span><select id="eccLevel"><option value="L">L</option><option value="M" selected>M</option><option value="Q">Q</option><option value="H">H</option></select></label>
+          <label class="field"><span>High Density Mode</span><select id="highDensityMode"><option value="false" selected>Disabled · Normal RGBW</option><option value="true">Enabled · Triangle16 · Experimental</option></select></label>
+        </div>
+
+        <div class="advanced-heading"><div><p class="kicker">ADVANCED</p><strong>Optional features</strong></div><span>Open only what you need</span></div>
+        <div class="accordion-stack">
+          <details class="accordion">
+            <summary><span class="accordion-title"><strong>Output & rendering</strong><small>Image size, quiet zone, style and print mode</small></span><span class="accordion-chevron"></span></summary>
+            <div class="accordion-content"><div class="row generator-options">
+              <label class="field"><span>Output size</span><select id="imageSize"><option value="360">360 × 360 px</option><option value="512">512 × 512 px</option><option value="720" selected>720 × 720 px · standard</option><option value="1024">1024 × 1024 px</option><option value="1440">1440 × 1440 px</option><option value="2048">2048 × 2048 px</option></select></label>
+              <label class="field"><span>Quiet zone</span><select id="quietZone"><option value="0">0 modules</option><option value="1">1 module</option><option value="2">2 modules</option><option value="3">3 modules</option><option value="4" selected>4 modules</option><option value="5">5 modules</option><option value="6">6 modules</option><option value="8">8 modules</option></select></label>
+              <label class="field"><span>Render style</span><select id="renderStyle"><option value="classic">Classic · solid</option><option value="depth">Depth · layered</option><option value="soft">Soft · rounded</option><option value="inset">Inset · pressed</option></select></label>
+              <label class="field"><span>Output mode</span><select id="renderMode"><option value="screen" selected>Screen · standard palette</option><option value="print">Print · safer colors + quiet zone</option></select></label>
+            </div><p id="styleHint" class="style-hint">Classic keeps every module fully solid. Styles only change rendering, never the encoded data.</p></div>
+          </details>
+
+          <details class="accordion">
+            <summary><span class="accordion-title"><strong>Center logo</strong><small>Add branding with automatic ECC-aware sizing</small></span><span class="accordion-chevron"></span></summary>
+            <div class="accordion-content">
+              <div class="field"><span>Logo image</span><label id="logoUpload" class="logo-upload" for="logoFile"><input id="logoFile" class="logo-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"/><span class="logo-upload-icon">+</span><span class="logo-upload-copy"><strong id="logoFileName">Choose a logo</strong><small id="logoFileMeta">PNG, JPG, WEBP or SVG</small></span><span class="logo-upload-action">Browse</span></label></div>
+              <div class="logo-state-row"><label class="toggle-field" for="logoEnabled"><input id="logoEnabled" type="checkbox" disabled/><span><strong>Use selected logo</strong><small>Turn overlay on or off without losing the file.</small></span></label><button id="removeLogoBtn" class="secondary compact" type="button" disabled>Remove logo</button></div>
+              <div class="row logo-options"><label class="field"><span>Logo size</span><select id="logoSize"><option value="auto" selected>Auto · ECC-aware safe size</option><option value="0.10">10%</option><option value="0.12">12%</option><option value="0.15">15%</option><option value="0.18">18%</option><option value="0.22">22%</option></select></label><label class="toggle-field" for="logoClearBackground"><input id="logoClearBackground" type="checkbox" checked/><span><strong>Clear logo background</strong><small>Clears modules below logo.</small></span></label></div>
+            </div>
+          </details>
+
+          <details class="accordion">
+            <summary><span class="accordion-title"><strong>Compression</strong><small>Auto, Smart, Brotli, DEFLATE or LZ</small></span><span class="accordion-chevron"></span></summary>
+            <div class="accordion-content"><label class="field"><span>Compression mode</span><select id="compressionMode"><option value="auto" selected>Auto · fast balanced comparison</option><option value="smart">Smart · CPU-heavy smallest-QR search</option><option value="none">Off · store payload directly</option><option value="brotli">Brotli</option><option value="deflate">DEFLATE</option><option value="lz">Legacy LZ</option></select></label><div id="compressionLevelFields" class="security-fields hidden"><label class="field"><span id="compressionLevelLabel">Compression level</span><select id="compressionLevel"></select></label></div><p id="compressionHint" class="style-hint"></p></div>
+          </details>
+
+          <details class="accordion">
+            <summary><span class="accordion-title"><strong>Digital signature</strong><small>Optional Ed25519 integrity verification</small></span><span class="accordion-chevron"></span></summary>
+            <div class="accordion-content"><label class="toggle-field" for="signPayload"><input id="signPayload" type="checkbox"/><span><strong>Digitally sign payload</strong><small>Private key signs, public key verifies.</small></span></label><div id="signingFields" class="security-fields hidden"><label class="field"><span>Key ID</span><input id="signingKeyId" type="text" placeholder="Generated with the key pair"/></label><div class="actions compact-actions"><button id="generateSigningKeyBtn" class="secondary compact" type="button">Generate Ed25519 key pair</button><span id="signingKeyStatus" class="style-hint inline-hint">No signing key generated.</span></div></div></div>
+          </details>
+
+          <details class="accordion">
+            <summary><span class="accordion-title"><strong>Encryption</strong><small>Password or raw-key AES-256-GCM protection</small></span><span class="accordion-chevron"></span></summary>
+            <div class="accordion-content"><label class="field"><span>Security mode</span><select id="securityMode"><option value="none" selected>None · standard QuadQR</option><option value="password">Password · PBKDF2 + AES-256-GCM</option><option value="raw-key">Raw 256-bit key · AES-256-GCM</option></select></label><div id="passwordSecurityFields" class="security-fields hidden"><label class="field"><span>Password</span><input id="securityPassword" type="password" autocomplete="new-password" placeholder="Enter encryption password"/></label></div><div id="rawKeySecurityFields" class="security-fields hidden"><label class="field"><span>Raw 256-bit key</span><input id="securityRawKey" type="text" autocomplete="off" spellcheck="false" placeholder="64 hexadecimal characters"/></label><button id="generateRawKeyBtn" class="secondary compact" type="button">Generate secure key</button></div><p id="securityHint" class="style-hint"></p></div>
+          </details>
+        </div>
+        <div class="actions generator-actions"><button id="generateBtn" class="primary generate-button"><span class="button-spinner"></span><span id="generateBtnText">Generate + verify</span></button><button id="downloadBtn" class="secondary" disabled>Download PNG</button><button id="downloadSvgBtn" class="secondary" disabled>Download SVG</button></div>
+        <div id="errorBox" class="error hidden"></div>
+      </article>
+
+      <article class="panel preview-panel">
+        <div class="panel-head"><div><p class="kicker">Output</p><h2>Code</h2></div><span class="security-badge">RUST/WASM</span></div>
+        <div class="canvas-wrap svg-preview-wrap"><div id="qrPreview" class="qr-svg-preview"></div><div id="generationOverlay" class="generation-overlay hidden"><span class="generation-spinner"></span><strong id="generationStatus">Preparing…</strong><small id="generationStatusDetail">Rust/WASM compute runs off the UI thread.</small></div></div>
+        <canvas id="qrCanvas" class="verification-canvas" aria-hidden="true"></canvas>
+        <div class="accordion-stack output-accordions">
+          <details class="accordion" open><summary><span class="accordion-title"><strong>Code details</strong><small>Matrix, capacity, ECC and output metadata</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><dl id="stats" class="stats"><div><dt>Matrix</dt><dd>--</dd></div><div><dt>Output</dt><dd>--</dd></div><div><dt>Payload</dt><dd>--</dd></div><div><dt>Capacity</dt><dd>--</dd></div><div><dt>Density</dt><dd>--</dd></div><div><dt>ECC</dt><dd>--</dd></div><div><dt>Alignment</dt><dd>--</dd></div><div><dt>RS blocks</dt><dd>--</dd></div><div><dt>Mask</dt><dd>--</dd></div><div><dt>Utilization</dt><dd>--</dd></div><div><dt>Features</dt><dd>--</dd></div><div><dt>CRC-32</dt><dd>--</dd></div></dl></div></details>
+          <details class="accordion"><summary><span class="accordion-title"><strong>Scanability</strong><small>Automatic robustness score and distortion checks</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><div class="scanability-card"><div><p class="kicker">SCANABILITY</p><strong id="scanabilityScore">Not tested</strong><small id="scanabilityMeta">Automatically tested before export.</small></div><button id="scanabilityBtn" class="secondary compact" type="button" disabled>Test robustness</button></div><div id="scanabilityResults" class="stress-results"></div></div></details>
+        </div>
+      </article>
+
+      <article class="panel scanner-panel wide">
+        <div class="panel-head"><div><p class="kicker">Image scanner</p><h2>Scan an exported image or photograph</h2></div></div>
+        <label class="drop" for="scanFile"><input id="scanFile" type="file" accept="image/*"/><strong>Choose an image</strong><span>Angled photographs are supported. Keep the three finder patterns visible.</span></label>
+        <p class="secure-scan-note"><strong>Secure scanning supported.</strong> Password and raw-key QuadQR payloads are detected automatically.</p>
+        <div id="scanResult" class="scan-result empty">No image scanned yet.</div>
+        <div class="accordion-stack scanner-options"><details class="accordion"><summary><span class="accordion-title"><strong>Scanner debug</strong><small>Finder geometry and recovery activity</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><label class="toggle-field debug-toggle" for="scanDebug"><input id="scanDebug" type="checkbox"/><span><strong>Enable detailed diagnostics</strong><small>Shows the scanner diagnostics.</small></span></label><pre id="scanDebugOutput" class="debug-output hidden"></pre></div></details></div>
+      </article>
+
+      <article class="panel info-panel wide"><p class="kicker">QUADQR FORMAT</p><h2>Four states, exactly two bits per normal RGBW data cell</h2><div class="feature-grid"><p><strong>Rust core.</strong> Encoding, decoding, scanning, ECC, perspective recovery, compression and secure payload operations are backed by the Rust implementation.</p><p><strong>True threaded WASM.</strong> When the page is cross-origin isolated, camera and analysis workers initialize the Rayon/WebAssembly thread pool.</p><p><strong>Same JS API.</strong> The wrapper preserves the current quadqr-js function names and call shapes.</p><p><strong>High Density Mode.</strong> Triangle16 remains available as the experimental 4-bit body-cell mode.</p></div><p class="warning">This is a custom experimental symbology. Standard QR scanner apps cannot decode it.</p></article>
+    </div>
+  </section>
+
+  <section id="cameraView" class="tab-view" data-view="camera" hidden>
+    <div class="camera-page"><article class="panel camera-panel camera-only">
+      <div class="panel-head"><div><p class="kicker">Camera scanner</p><h2>Live QuadQR scan</h2></div><span id="cameraPill" class="pill neutral">Stopped</span></div>
+      <div class="camera-stage"><video id="cameraVideo" playsinline muted></video><canvas id="cameraFreezeFrame" class="camera-freeze-frame"></canvas><canvas id="cameraOverlay" class="camera-overlay"></canvas><div class="camera-guide"><span></span><span></span><span></span><span></span></div><div class="camera-live-hud"><span class="camera-live-dot"></span><span id="cameraHudText">Idle</span></div><div id="cameraFinderHud" class="camera-finder-hud">Finders 0/3</div></div>
+      <div class="actions"><button id="startCameraBtn" class="primary">Start camera</button><button id="stopCameraBtn" class="secondary" disabled>Stop</button></div>
+      <div class="accordion-stack camera-options"><details class="accordion"><summary><span class="accordion-title"><strong>Live scanner diagnostics</strong><small>Finder detection, geometry and recovery activity</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><div class="scanner-diagnostics"><div class="scanner-diagnostics-head"><div><p class="kicker">Live diagnostics</p><h3>Scanner activity</h3></div><button id="copyCameraLogBtn" class="diagnostic-copy" type="button">Copy log</button></div><div class="scanner-diagnostic-stats"><div><span>Method</span><strong id="cameraMethodStat">Idle</strong></div><div><span>Finders</span><strong id="cameraFinderStat">0 / 3</strong></div><div><span>Geometry</span><strong id="cameraGeometryStat">Not found</strong></div><div><span>Frame</span><strong id="cameraFrameStat">--</strong></div></div><div id="cameraLog" class="scanner-log"><div class="scanner-log-line muted">Start the camera to see diagnostics.</div></div></div></div></details></div>
+      <p class="camera-note">The Rust/WASM scanner keeps only the newest camera frame and uses the same finder, perspective and recovery pipeline as the native port.</p><div id="cameraResult" class="scan-result empty">No camera result yet.</div>
+    </article></div>
+  </section>
+
+  <section id="reliabilityView" class="tab-view" data-view="reliability" hidden>
+    <div class="reliability-page"><article class="panel reliability-panel">
+      <div class="panel-head"><div><p class="kicker">Reliability Lab</p><h2>Real-world scan torture testing</h2></div><span id="reliabilityPill" class="pill neutral">Not run</span></div>
+      <p class="benchmark-intro">Test the generated QuadQR against deterministic optics, lighting, resampling and perspective distortion using the Rust scanner.</p>
+      <div class="reliability-summary-grid"><div class="reliability-metric"><span>Reliability score</span><strong id="reliabilityScore">--</strong><small id="reliabilityRating">Not tested</small></div><div class="reliability-metric"><span>Scenarios passed</span><strong id="reliabilityPassed">--</strong><small>CRC-verified decodes</small></div><div class="reliability-metric"><span>Average confidence</span><strong id="reliabilityConfidence">--</strong><small>Successful scans</small></div><div class="reliability-metric"><span>Weakest area</span><strong id="reliabilityWeakest">--</strong><small>Lowest category pass score</small></div></div>
+      <div class="row benchmark-controls reliability-controls"><label class="field"><span>Test suite</span><select id="reliabilitySuite"><option value="quick">Quick</option><option value="full" selected>Full</option><option value="extreme">Extreme perspective</option></select></label><label class="field"><span>Test image</span><select id="reliabilityImageScale"><option value="8">8 px/module</option><option value="10" selected>10 px/module</option><option value="12">12 px/module</option></select></label></div>
+      <div class="actions"><button id="runReliabilityBtn" class="primary" type="button">Run Reliability Lab</button></div><div id="reliabilityStatus" class="scan-result empty">Generate a QuadQR, then run the reliability suite.</div>
+      <div class="table-wrap reliability-table-wrap"><table class="benchmark-table reliability-table"><thead><tr><th>Scenario</th><th>Category</th><th>Result</th><th>Confidence</th><th>RS corrected</th><th>Time</th><th>Preview</th></tr></thead><tbody id="reliabilityResultsBody"><tr><td colspan="7" class="muted-cell">No reliability run yet.</td></tr></tbody></table></div>
+      <div class="reliability-perspective-grid"><section class="reliability-perspective-controls"><div class="advanced-heading"><div><p class="kicker">3D perspective playground</p><h3>Pitch, yaw and Z rotation</h3></div></div><label class="field range-field"><span>X pitch <b id="perspectivePitchValue">0°</b></span><input id="perspectivePitch" type="range" min="-55" max="55" value="0"/></label><label class="field range-field"><span>Y yaw <b id="perspectiveYawValue">35°</b></span><input id="perspectiveYaw" type="range" min="-65" max="65" value="35"/></label><label class="field range-field"><span>Z rotation <b id="perspectiveRollValue">0°</b></span><input id="perspectiveRoll" type="range" min="-90" max="90" value="0"/></label><div class="actions reliability-perspective-actions"><button id="testPerspectiveBtn" class="secondary" type="button">Apply + scan</button><button id="runPerspectiveSweepBtn" class="primary" type="button">Run angle sweep</button></div><div class="row benchmark-controls sweep-controls"><label class="field"><span>Sweep axis</span><select id="perspectiveSweepAxis"><option value="yaw" selected>Y yaw</option><option value="pitch">X pitch</option><option value="roll">Z rotation</option></select></label></div><div id="perspectiveResult" class="scan-result empty">Move the sliders and test a synthetic camera angle.</div><div id="perspectiveSweepResults" class="stress-results"></div></section><div class="stress-stage reliability-preview-stage"><canvas id="stressCanvas" width="520" height="520"></canvas></div></div>
+    </article></div>
+  </section>
+
+  <dialog id="reliabilityPreviewDialog" class="reliability-preview-dialog">
+    <div class="reliability-preview-modal">
+      <div class="reliability-preview-head">
+        <div>
+          <p class="kicker">TEST IMAGE PREVIEW</p>
+          <h3 id="reliabilityPreviewTitle">Reliability scenario</h3>
+          <p id="reliabilityPreviewMeta" class="reliability-preview-meta"></p>
+        </div>
+        <button id="reliabilityPreviewCloseBtn" class="secondary compact" type="button">Close</button>
+      </div>
+      <div class="reliability-preview-canvas-wrap">
+        <canvas id="reliabilityPreviewCanvas" width="520" height="520"></canvas>
+      </div>
+      <p class="style-hint">This preview is regenerated with the same Rust distortion type, severity and perspective parameters used by the Reliability Lab row.</p>
+    </div>
+  </dialog>
+
+  <section id="benchmarkView" class="tab-view" data-view="benchmark" hidden>
+    <div class="benchmark-page"><article class="panel benchmark-panel"><div class="panel-head"><div><p class="kicker">Benchmark</p><h2>Capacity and codec performance</h2></div><span id="benchmarkPill" class="pill neutral">Not run</span></div><p class="benchmark-intro">Compare QuadQR capacity and benchmark the Rust/WASM codec in this browser.</p><div class="row benchmark-controls"><label class="field"><span>ECC profile</span><select id="benchmarkEcc"><option value="L">L</option><option value="M" selected>M</option><option value="Q">Q</option><option value="H">H</option></select></label><label class="field"><span>Iterations</span><select id="benchmarkIterations"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select></label></div><div class="actions"><button id="runBenchmarkBtn" class="primary">Run benchmark</button></div>
+      <div class="accordion-stack benchmark-accordions"><details class="accordion" open><summary><span class="accordion-title"><strong>Same-size capacity</strong><small>QuadQR vs standard QR byte capacity</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Version</th><th>Matrix</th><th>QuadQR</th><th>High Density T16</th><th>Standard QR</th><th>Normal ratio</th><th>High density ratio</th></tr></thead><tbody id="capacityBenchmarkBody"></tbody></table></div></div></details><details class="accordion"><summary><span class="accordion-title"><strong>Codec performance</strong><small>Browser encode and decode timing</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><div class="table-wrap"><table class="benchmark-table"><thead><tr><th>Mode</th><th>Payload</th><th>Matrix</th><th>Encode mean</th><th>Encode p95</th><th>Decode mean</th><th>Decode p95</th></tr></thead><tbody id="speedBenchmarkBody"><tr><td colspan="7" class="muted-cell">Run the benchmark.</td></tr></tbody></table></div></div></details><details class="accordion"><summary><span class="accordion-title"><strong>Capacity calculator</strong><small>Estimate version and remaining capacity</small></span><span class="accordion-chevron"></span></summary><div class="accordion-content"><div class="row benchmark-controls"><label class="field"><span>Payload bytes</span><input id="capacityPayloadBytes" type="number" min="0" value="256"/></label><label class="field"><span>ECC</span><select id="capacityEcc"><option>L</option><option selected>M</option><option>Q</option><option>H</option></select></label><label class="field"><span>High Density Mode</span><select id="capacityHighDensity"><option value="false" selected>Disabled</option><option value="true">Enabled</option></select></label><label class="field"><span>Compression</span><select id="capacityCompression"><option value="none">None</option><option value="auto" selected>Auto</option><option value="smart">Smart</option><option value="brotli">Brotli</option><option value="deflate">DEFLATE</option><option value="lz">Legacy LZ</option></select></label><label class="field"><span>Signed</span><select id="capacitySigned"><option value="false" selected>No</option><option value="true">Yes</option></select></label></div><div class="actions"><button id="calculateCapacityBtn" class="secondary" type="button">Calculate</button></div><div id="capacityPlanResult" class="scan-result empty">Enter a payload size and calculate.</div></div></details></div>
+    </article></div>
+  </section>
+</main>
+<script src="./coi-serviceworker.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="QuadQR SDK documentation for Rust, Android, Flutter, and experimental WebAssembly."><title>Contributing | QuadQR documentation</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css"><link rel="icon" href="assets/quadqr_ic.svg" type="image/svg+xml"></head>
+<body><header class="topbar"><button class="icon-button menu-button" id="menu-button" aria-label="Open navigation" type="button">☰</button><a class="brand" href="index.html"><img class="brand-icon" src="assets/quadqr_ic.svg" alt="">QuadQR <small>SDK documentation</small></a><nav class="top-links" aria-label="Top links"><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR-SDK">Repository</a><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR">Original JS</a><button class="icon-button" id="theme-button" aria-label="Toggle color theme" type="button">◐</button></nav></header>
+<div class="shell"><aside class="sidebar" id="site-nav" aria-label="Documentation navigation"></aside><main class="content"><article class="article"><header><span class="eyebrow">Source guide</span><h1>Contributing</h1><p class="lead">Development checks, compatibility rules, and pull request guidance.</p></header><p>Thanks for helping improve QuadQR. The JavaScript implementation is the v6 format reference, so changes to the wire format need special care.</p>
+<h2 id="before-you-start">Before you start</h2>
+<ul>
+<li>Use an issue or discussion to describe format changes, new public APIs, or larger platform work before implementing them.</li>
+<li>Keep changes focused. Explain the behavior, the reason for the change, and any compatibility effect in the pull request.</li>
+<li>Do not commit generated build output, local caches, native libraries, keys, credentials, or personal test images.</li>
+<li>By contributing, you agree that your contribution is licensed under this repository's AGPL-3.0-only license.</li>
+</ul>
+<h2 id="set-up">Set up</h2>
+<p>Install stable Rust with rustup. For the desktop demo, use a graphical host OS and a webcam if you are changing live scanning. See the <a href="build.html">README</a> for Node/WASM, Android, and Flutter prerequisites.</p>
+<pre><code class="language-sh">cargo fmt --all -- --check
+cargo clippy --workspace --all-features -- -D warnings
+cargo test --workspace --all-features --release
+</code></pre>
+<p>Run <code>cargo run --release -p quadqr-demo</code> for visual or camera changes. Use release builds when comparing scanner timing. The CI workflow runs core tests and demo compilation on Linux, macOS, and Windows.</p>
+<h2 id="platform-checks">Platform checks</h2>
+<p>Run only the checks relevant to the code you changed:</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Checks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rust core or format</td>
+<td>Workspace formatting, Clippy, and release tests; add a test for the changed behavior</td>
+</tr>
+<tr>
+<td>JavaScript/WASM</td>
+<td>From <code>packages/quadqr-js</code>: <code>npm run check:source</code>, <code>npm run build:wasm</code>, <code>npm run verify:wasm</code>, <code>npm run check</code></td>
+</tr>
+<tr>
+<td>Android JNI/Java/Kotlin</td>
+<td>Build native libraries and the AAR with <code>build-android-release.*</code>; exercise the API on a supported ABI</td>
+</tr>
+<tr>
+<td>Flutter</td>
+<td>Run <code>build-flutter.*</code>, <code>flutter analyze</code>, and <code>flutter test</code> from the Flutter package; exercise the example on Android</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td>Install <code>scripts/requirements-docs.txt</code>, run <code>python scripts/build-doc-site.py</code> and <code>python scripts/check-doc-links.py</code>; check code examples and preview <code>documentation/index.html</code> at desktop and mobile widths</td>
+</tr>
+</tbody>
+</table>
+<p>If a toolchain or physical device is unavailable, say which check was skipped in the pull request. A real camera check is particularly useful for changes to finder detection, perspective recovery, color sampling, or frame scheduling.</p>
+<h2 id="compatibility-rules">Compatibility rules</h2>
+<ul>
+<li>Preserve v6 headers, matrix geometry, RGBW/Triangle16 mapping, masking, CRC-32, Reed–Solomon profiles, interleaving, and the compression/security envelopes unless a versioned format change is explicitly agreed.</li>
+<li>Keep browser camera and worker lifecycle in the JavaScript adapter; the reusable Rust core accepts matrices and image data.</li>
+<li>Add or update cross-language vectors for format changes. Verify both JS-generated data in Rust and Rust-generated data in the reference implementation when possible.</li>
+<li>Avoid introducing a new public API without updating its relevant guide and example.</li>
+</ul>
+<h2 id="pull-request-checklist">Pull request checklist</h2>
+<ul>
+<li>Describe the user-visible effect and compatibility impact.</li>
+<li>Include meaningful tests or a reproducible manual check for behavior changes.</li>
+<li>Run the relevant checks above and report their results.</li>
+<li>Update README, package guides, or documentation site when setup, builds, or APIs change.</li>
+<li>Keep secrets and machine-specific paths out of commits and examples.</li>
+</ul>
+<p>For security reports that should not be public, contact the maintainer privately through the repository's GitHub security advisory workflow.</p><footer class="footer"><span>QuadQR SDK · AGPL-3.0-only</span><span><a href="contributing.html">Contribute</a> · <a href="license.html">License</a></span></footer></article></main></div><script src="vendor/highlightjs/highlight.min.js"></script><script src="vendor/highlightjs/dart.min.js"></script><script src="vendor/highlightjs/dos.min.js"></script><script src="vendor/highlightjs/http.min.js"></script><script src="app.js"></script></body></html>

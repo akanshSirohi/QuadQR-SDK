@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QuadQR WASM Browser Smoke Test</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background:#0b0d10; color:#edf2f7; }
+    body { margin:0; padding:24px; }
+    main { max-width:900px; margin:auto; }
+    h1 { margin:0 0 8px; }
+    p { color:#aeb8c5; line-height:1.55; }
+    table { width:100%; border-collapse:collapse; margin:20px 0; }
+    th,td { border-bottom:1px solid #29313a; padding:10px; text-align:left; vertical-align:top; }
+    .ok { color:#89e8a8; } .bad { color:#ff9494; } .run { color:#f4d06f; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#11161d; padding:14px; border-radius:10px; }
+    canvas { background:white; max-width:320px; width:100%; height:auto; image-rendering:pixelated; }
+    button { padding:10px 14px; border:0; border-radius:8px; cursor:pointer; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>QuadQR WASM Browser Smoke Test</h1>
+  <p>This isolates the Rust/WASM runtime from the full demo. Baseline tests run automatically. Threaded Rayon is tested only when you press the button.</p>
+  <table><thead><tr><th>Stage</th><th>Status</th><th>Details</th></tr></thead><tbody id="rows"></tbody></table>
+  <canvas id="preview" width="320" height="320"></canvas>
+  <p><button id="threadBtn" type="button">Test threaded WASM</button></p>
+  <pre id="log"></pre>
+</main>
+<script type="module" src="./browser-smoke.js"></script>
+</body>
+</html>

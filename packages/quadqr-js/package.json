@@ -1,0 +1,51 @@
+{
+  "name": "quadqr-js",
+  "version": "1.5.7-rust-wasm-test.0",
+  "description": "QuadQR JavaScript API backed by the Rust/WebAssembly engine",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "author": "Akansh Sirohi",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akanshSirohi/QuadQR-SDK.git"
+  },
+  "main": "./library/node.js",
+  "module": "./library/index.js",
+  "browser": "./library/browser.js",
+  "exports": {
+    ".": {
+      "browser": "./library/browser.js",
+      "node": "./library/node.js",
+      "default": "./library/index.js"
+    },
+    "./browser": "./library/browser.js",
+    "./node": "./library/node.js",
+    "./benchmark": "./library/benchmark.js",
+    "./quadqr.js": "./library/quadqr.js",
+    "./quadqr.min.js": "./library/quadqr.min.js",
+    "./wasm": "./library/wasm.js",
+    "./wasm-core": "./wasm/single/quadqr_wasm.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "library/",
+    "wasm/",
+    "demo/",
+    "README.md"
+  ],
+  "scripts": {
+    "sync:demo": "node ./scripts/sync-demo.mjs",
+    "setup:wasm": "node ./scripts/setup-wasm.mjs",
+    "build:wasm": "node ./scripts/build-wasm.mjs",
+    "check": "node ./scripts/check-api.mjs",
+    "serve": "node ./scripts/serve.mjs",
+    "dev": "npm run verify && npm run serve",
+    "check:source": "node ./scripts/check-source.mjs",
+    "verify:wasm": "node ./scripts/verify-built-wasm.mjs",
+    "verify": "npm run check:source && npm run build:wasm && npm run verify:wasm && npm run check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}

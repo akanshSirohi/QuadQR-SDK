@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="QuadQR SDK documentation for Rust, Android, Flutter, and experimental WebAssembly."><title>Flutter | QuadQR documentation</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css"><link rel="icon" href="assets/quadqr_ic.svg" type="image/svg+xml"></head>
+<body><header class="topbar"><button class="icon-button menu-button" id="menu-button" aria-label="Open navigation" type="button">☰</button><a class="brand" href="index.html"><img class="brand-icon" src="assets/quadqr_ic.svg" alt="">QuadQR <small>SDK documentation</small></a><nav class="top-links" aria-label="Top links"><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR-SDK">Repository</a><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR">Original JS</a><button class="icon-button" id="theme-button" aria-label="Toggle color theme" type="button">◐</button></nav></header>
+<div class="shell"><aside class="sidebar" id="site-nav" aria-label="Documentation navigation"></aside><main class="content"><article class="article"><header><span class="eyebrow">Dart · Android FFI</span><h1>Flutter</h1><p class="lead">Use the Rust engine from Dart through a Flutter package for Android, including a live scanner.</p></header><div class="quick-links"><a href="#requirements">Requirements</a><a href="#prepare">Prepare</a><a href="#use">Use</a><a href="#camera">Camera</a></div><h2 id="requirements">Requirements</h2><p>Flutter 3.22+, Dart 3.3+, Rust, Android SDK/NDK, and <code>cargo-ndk</code>. This package targets Android API 21+ on arm64-v8a, armeabi-v7a, and x86_64. The plugin specifies compile SDK 36 and NDK 30.0.16248370.</p><h2 id="prepare">Prepare the package</h2><pre><code class="language-bash"># Windows
+build-flutter.bat
+
+# macOS/Linux
+./build-flutter.sh</code></pre><p>The script builds native libraries, copies them into the plugin, then runs <code>flutter pub get</code> and <code>flutter analyze</code> if Flutter is installed. Add the package as a local path dependency:</p><pre><code class="language-yaml">dependencies:
+  quadqr_flutter:
+    path: ../QuadQR-SDK/packages/quadqr-flutter</code></pre><h2 id="use">Encode, render, and scan</h2><pre><code class="language-dart">import 'package:quadqr_flutter/quadqr.dart';
+
+final qr = QuadQR.instance;
+final code = qr.encodeText(
+  'Hello Flutter',
+  options: const EncodeOptions(ecc: EccLevel.m),
+);
+final png = qr.renderPng(code, options: const RenderOptions(imageSize: 720));
+final scanned = qr.scanImage(png);
+print(scanned.text);</code></pre><p>The Dart API also covers compression, encryption, signing, capacity, print guidance, and reliability. Read the <a href="dart-guide.html">full Flutter guide</a>.</p><h2 id="camera">Live scanning and release</h2><p><code>QuadQRLiveScanner</code> scans in a background isolate and keeps the latest pending frame. On Android, prefer <code>submitYuv420</code> with plane bytes and strides; <code>submitRgba</code> remains available.</p><pre><code class="language-dart">final scanner = QuadQRLiveScanner();
+await scanner.start();
+scanner.results.listen((result) => print(result.text));
+scanner.submitRgba(rgbaBytes, width, height);
+await scanner.dispose();</code></pre><p><code>build-flutter-release.bat</code> or <code>./build-flutter-release.sh</code> creates <code>dist/quadqr-flutter.zip</code> after validation. Run the example in <code>packages/quadqr-flutter/example</code> with <code>flutter pub get</code> and <code>flutter run</code>.</p><footer class="footer"><span>QuadQR SDK · AGPL-3.0-only</span><span><a href="contributing.html">Contribute</a> · <a href="license.html">License</a></span></footer></article></main></div><script src="vendor/highlightjs/highlight.min.js"></script><script src="vendor/highlightjs/dart.min.js"></script><script src="vendor/highlightjs/dos.min.js"></script><script src="vendor/highlightjs/http.min.js"></script><script src="app.js"></script></body></html>

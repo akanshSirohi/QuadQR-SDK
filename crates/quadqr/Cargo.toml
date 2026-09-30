@@ -1,0 +1,32 @@
+[package]
+name = "quadqr"
+version = "0.1.0"
+description = "Native Rust implementation of the QuadQR v6 RGBW/Triangle16 matrix symbology"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+default = ["image", "image-codecs", "compression", "security", "parallel"]
+image = ["dep:image"]
+image-codecs = ["image/default"]
+parallel = ["dep:rayon"]
+compression = ["dep:flate2", "dep:brotli"]
+security = ["dep:aes-gcm", "dep:pbkdf2", "dep:sha2", "dep:rand", "dep:ed25519-dalek", "dep:zeroize"]
+
+[dependencies]
+thiserror.workspace = true
+rayon = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+brotli = { workspace = true, optional = true }
+aes-gcm = { workspace = true, optional = true }
+pbkdf2 = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+ed25519-dalek = { workspace = true, optional = true }
+zeroize = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = "1.1"

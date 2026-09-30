@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.*;
+public final class PerspectiveSweepResult { private final JSONObject r;PerspectiveSweepResult(JSONObject r){this.r=r;}public String getAxis(){return r.optString("axis");}public double getLargestPassingAngle(){return r.optDouble("largestPassingAngle");}public double[] getAngles(){JSONArray a=r.optJSONArray("angles");if(a==null)return new double[0];double[] o=new double[a.length()];for(int i=0;i<a.length();i++)o[i]=a.optDouble(i);return o;}public boolean[] getPassed(){JSONArray a=r.optJSONArray("passed");if(a==null)return new boolean[0];boolean[] o=new boolean[a.length()];for(int i=0;i<a.length();i++)o[i]=a.optBoolean(i);return o;} }

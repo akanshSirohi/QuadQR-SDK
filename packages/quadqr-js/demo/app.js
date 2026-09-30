@@ -1,0 +1,2078 @@
+import {
+  encodeText,
+  encodeSignedText,
+  encodeSecureText,
+  decodeMatrix,
+  decryptDecoded,
+  verifyDecodedSignature,
+  generateSigningKeyPair,
+  generateRaw256Key,
+  bytesToHex,
+  renderToCanvas,
+  renderToSVG,
+  startCameraScanner,
+  estimateSafeLogoSize,
+  getPrintGuidance,
+  getVersionInfo,
+  applyStressDistortion,
+  MAX_VERSION
+} from "../library/quadqr.js";
+import { buildCapacityComparison, calculateCapacityPlan } from "../library/benchmark.js";
+import { initWasm } from "../library/wasm.js";
+
+// Keep the UI/main thread on the baseline WASM instance. Camera scanning uses
+// a dedicated worker with the true threaded Rayon build, and the analysis
+// worker is opted into threads separately below.
+const scannerWasmReady = initWasm({ threads: false }).catch(() => null);
+
+const payloadEl = document.querySelector("#payload");
+const versionEl = document.querySelector("#version");
+const eccLevelEl = document.querySelector("#eccLevel");
+const highDensityModeEl = document.querySelector("#highDensityMode");
+const imageSizeEl = document.querySelector("#imageSize");
+const quietZoneEl = document.querySelector("#quietZone");
+const renderStyleEl = document.querySelector("#renderStyle");
+const renderModeEl = document.querySelector("#renderMode");
+const styleHintEl = document.querySelector("#styleHint");
+const compressionModeEl = document.querySelector("#compressionMode");
+const compressionLevelFieldsEl = document.querySelector("#compressionLevelFields");
+const compressionLevelEl = document.querySelector("#compressionLevel");
+const compressionLevelLabelEl = document.querySelector("#compressionLevelLabel");
+const compressionHintEl = document.querySelector("#compressionHint");
+const logoFileEl = document.querySelector("#logoFile");
+const logoUploadEl = document.querySelector("#logoUpload");
+const logoFileNameEl = document.querySelector("#logoFileName");
+const logoFileMetaEl = document.querySelector("#logoFileMeta");
+const logoEnabledEl = document.querySelector("#logoEnabled");
+const removeLogoBtn = document.querySelector("#removeLogoBtn");
+const logoSizeEl = document.querySelector("#logoSize");
+const logoClearBackgroundEl = document.querySelector("#logoClearBackground");
+const signPayloadEl = document.querySelector("#signPayload");
+const signingFieldsEl = document.querySelector("#signingFields");
+const signingKeyIdEl = document.querySelector("#signingKeyId");
+const generateSigningKeyBtn = document.querySelector("#generateSigningKeyBtn");
+const signingKeyStatusEl = document.querySelector("#signingKeyStatus");
+const securityModeEl = document.querySelector("#securityMode");
+const passwordSecurityFieldsEl = document.querySelector("#passwordSecurityFields");
+const rawKeySecurityFieldsEl = document.querySelector("#rawKeySecurityFields");
+const securityPasswordEl = document.querySelector("#securityPassword");
+const securityRawKeyEl = document.querySelector("#securityRawKey");
+const generateRawKeyBtn = document.querySelector("#generateRawKeyBtn");
+const securityHintEl = document.querySelector("#securityHint");
+const generateBtn = document.querySelector("#generateBtn");
+const generateBtnText = document.querySelector("#generateBtnText");
+const generationOverlay = document.querySelector("#generationOverlay");
+const generationStatus = document.querySelector("#generationStatus");
+const generationStatusDetail = document.querySelector("#generationStatusDetail");
+const downloadBtn = document.querySelector("#downloadBtn");
+const downloadSvgBtn = document.querySelector("#downloadSvgBtn");
+const canvas = document.querySelector("#qrCanvas");
+const qrPreviewEl = document.querySelector("#qrPreview");
+const verificationPill = document.querySelector("#verificationPill");
+const statsEl = document.querySelector("#stats");
+const scanabilityBtn = document.querySelector("#scanabilityBtn");
+const scanabilityScoreEl = document.querySelector("#scanabilityScore");
+const scanabilityMetaEl = document.querySelector("#scanabilityMeta");
+const scanabilityResultsEl = document.querySelector("#scanabilityResults");
+const errorBox = document.querySelector("#errorBox");
+const scanFileEl = document.querySelector("#scanFile");
+const scanResultEl = document.querySelector("#scanResult");
+const scanDebugEl = document.querySelector("#scanDebug");
+const scanDebugOutputEl = document.querySelector("#scanDebugOutput");
+const cameraVideo = document.querySelector("#cameraVideo");
+const cameraFreezeFrame = document.querySelector("#cameraFreezeFrame");
+const cameraOverlay = document.querySelector("#cameraOverlay");
+const cameraHudText = document.querySelector("#cameraHudText");
+const cameraFinderHud = document.querySelector("#cameraFinderHud");
+const cameraLiveHud = document.querySelector(".camera-live-hud");
+const cameraMethodStat = document.querySelector("#cameraMethodStat");
+const cameraFinderStat = document.querySelector("#cameraFinderStat");
+const cameraGeometryStat = document.querySelector("#cameraGeometryStat");
+const cameraFrameStat = document.querySelector("#cameraFrameStat");
+const cameraLog = document.querySelector("#cameraLog");
+const copyCameraLogBtn = document.querySelector("#copyCameraLogBtn");
+const startCameraBtn = document.querySelector("#startCameraBtn");
+const stopCameraBtn = document.querySelector("#stopCameraBtn");
+const cameraPill = document.querySelector("#cameraPill");
+const cameraResultEl = document.querySelector("#cameraResult");
+const tabButtons = [...document.querySelectorAll("[data-tab]")];
+const tabViews = [...document.querySelectorAll("[data-view]")];
+const benchmarkEccEl = document.querySelector("#benchmarkEcc");
+const benchmarkIterationsEl = document.querySelector("#benchmarkIterations");
+const runBenchmarkBtn = document.querySelector("#runBenchmarkBtn");
+const benchmarkPill = document.querySelector("#benchmarkPill");
+const capacityBenchmarkBody = document.querySelector("#capacityBenchmarkBody");
+const speedBenchmarkBody = document.querySelector("#speedBenchmarkBody");
+const capacityPayloadBytesEl = document.querySelector("#capacityPayloadBytes");
+const capacityEccEl = document.querySelector("#capacityEcc");
+const capacityHighDensityEl = document.querySelector("#capacityHighDensity");
+const capacitySignedEl = document.querySelector("#capacitySigned");
+const capacityCompressionEl = document.querySelector("#capacityCompression");
+const calculateCapacityBtn = document.querySelector("#calculateCapacityBtn");
+const capacityPlanResultEl = document.querySelector("#capacityPlanResult");
+const stressCanvas = document.querySelector("#stressCanvas");
+const reliabilityPill = document.querySelector("#reliabilityPill");
+const reliabilityScoreEl = document.querySelector("#reliabilityScore");
+const reliabilityRatingEl = document.querySelector("#reliabilityRating");
+const reliabilityPassedEl = document.querySelector("#reliabilityPassed");
+const reliabilityConfidenceEl = document.querySelector("#reliabilityConfidence");
+const reliabilityWeakestEl = document.querySelector("#reliabilityWeakest");
+const reliabilitySuiteEl = document.querySelector("#reliabilitySuite");
+const reliabilityImageScaleEl = document.querySelector("#reliabilityImageScale");
+const runReliabilityBtn = document.querySelector("#runReliabilityBtn");
+const reliabilityStatusEl = document.querySelector("#reliabilityStatus");
+const reliabilityResultsBody = document.querySelector("#reliabilityResultsBody");
+const perspectivePitchEl = document.querySelector("#perspectivePitch");
+const perspectiveYawEl = document.querySelector("#perspectiveYaw");
+const perspectiveRollEl = document.querySelector("#perspectiveRoll");
+const perspectivePitchValueEl = document.querySelector("#perspectivePitchValue");
+const perspectiveYawValueEl = document.querySelector("#perspectiveYawValue");
+const perspectiveRollValueEl = document.querySelector("#perspectiveRollValue");
+const testPerspectiveBtn = document.querySelector("#testPerspectiveBtn");
+const runPerspectiveSweepBtn = document.querySelector("#runPerspectiveSweepBtn");
+const perspectiveSweepAxisEl = document.querySelector("#perspectiveSweepAxis");
+const perspectiveResultEl = document.querySelector("#perspectiveResult");
+const perspectiveSweepResultsEl = document.querySelector("#perspectiveSweepResults");
+const reliabilityPreviewDialog = document.querySelector("#reliabilityPreviewDialog");
+const reliabilityPreviewTitle = document.querySelector("#reliabilityPreviewTitle");
+const reliabilityPreviewMeta = document.querySelector("#reliabilityPreviewMeta");
+const reliabilityPreviewCanvas = document.querySelector("#reliabilityPreviewCanvas");
+const reliabilityPreviewCloseBtn = document.querySelector("#reliabilityPreviewCloseBtn");
+
+let currentCode = null;
+let currentRenderOptions = null;
+let currentLogoImage = null;
+let currentLogoDataUrl = null;
+let signingKeyPair = null;
+let cameraController = null;
+let cameraLogLines = [];
+let lastCameraLogSignature = "";
+let lastCameraFrameDiagnostic = null;
+let lastCameraUiUpdate = 0;
+let lastReliabilitySourceImage = null;
+
+const RELIABILITY_PREVIEW_SCENARIOS = Object.freeze({
+  baseline: Object.freeze({ type: "clean", severity: 0, options: {} }),
+  "lens-blur": Object.freeze({ type: "blur", severity: 0.35, options: {} }),
+  "low-exposure": Object.freeze({ type: "low-exposure", severity: 0.35, options: {} }),
+  "warm-cast": Object.freeze({ type: "warm-cast", severity: 0.45, options: {} }),
+  downscale: Object.freeze({ type: "downscale", severity: 0.45, options: {} }),
+  perspective: Object.freeze({ type: "perspective-3d", severity: 1, options: { pitchDegrees: 12, yawDegrees: 22, rollDegrees: 4 } }),
+  "motion-blur": Object.freeze({ type: "motion-blur", severity: 0.35, options: {} }),
+  "high-exposure": Object.freeze({ type: "high-exposure", severity: 0.35, options: {} }),
+  "gradient-shadow": Object.freeze({ type: "shadow", severity: 0.50, options: {} }),
+  glare: Object.freeze({ type: "glare", severity: 0.45, options: {} }),
+  "cool-cast": Object.freeze({ type: "cool-cast", severity: 0.45, options: {} }),
+  "contrast-loss": Object.freeze({ type: "contrast-loss", severity: 0.45, options: {} }),
+  "sensor-noise": Object.freeze({ type: "sensor-noise", severity: 0.40, options: {} }),
+  "jpeg-like": Object.freeze({ type: "jpeg-like", severity: 0.45, options: {} }),
+  rotation: Object.freeze({ type: "rotation", severity: 0.55, options: { rollDegrees: 8 } }),
+  "3d-tilt": Object.freeze({ type: "perspective-3d", severity: 1, options: { pitchDegrees: 20, yawDegrees: 32, rollDegrees: 8 } }),
+  "extreme-yaw": Object.freeze({ type: "perspective-3d", severity: 1, options: { pitchDegrees: 10, yawDegrees: 48, rollDegrees: 0 } }),
+  "extreme-pitch": Object.freeze({ type: "perspective-3d", severity: 1, options: { pitchDegrees: 42, yawDegrees: 12, rollDegrees: 7 } }),
+  "extreme-combined": Object.freeze({ type: "perspective-3d", severity: 1, options: { pitchDegrees: 34, yawDegrees: 42, rollDegrees: 14 } })
+});
+
+class DemoWorkerClient {
+  constructor(url) {
+    this.url = url;
+    this.worker = null;
+    this.nextId = 1;
+    this.pending = new Map();
+    this.ready = false;
+    this.queuedMessages = [];
+  }
+
+  ensureWorker() {
+    if (this.worker) return this.worker;
+    if (typeof Worker === "undefined") {
+      throw new Error("This demo requires Web Worker support for non-blocking encoding.");
+    }
+    const worker = new Worker(this.url, { type: "module" });
+    this.worker = worker;
+    this.ready = false;
+    this.queuedMessages = [];
+    worker.addEventListener("message", (event) => {
+      const message = event.data ?? {};
+      if (message.type === "worker-ready") {
+        this.readyState = message.wasm ?? { ready: true };
+        this.ready = true;
+        const queued = this.queuedMessages.splice(0);
+        for (const item of queued) {
+          if (this.worker !== worker || !this.pending.has(item.id)) continue;
+          try {
+            worker.postMessage(item.message, item.transfer);
+          } catch (error) {
+            const pending = this.pending.get(item.id);
+            if (!pending) continue;
+            this.pending.delete(item.id);
+            if (pending.timer) clearTimeout(pending.timer);
+            pending.reject(error);
+          }
+        }
+        return;
+      }
+      const { id, ok, result, error } = message;
+      const pending = this.pending.get(id);
+      if (!pending) return;
+      this.pending.delete(id);
+      if (pending.timer) clearTimeout(pending.timer);
+      if (ok) pending.resolve(result);
+      else {
+        const workerError = new Error(error?.message || "Background task failed.");
+        workerError.name = error?.name || "Error";
+        workerError.stack = error?.stack || workerError.stack;
+        if (error?.debug != null) workerError.debug = error.debug;
+        pending.reject(workerError);
+      }
+    });
+    worker.addEventListener("error", (event) => {
+      const error = new Error(event.message || "Demo background worker crashed.");
+      for (const pending of this.pending.values()) {
+        if (pending.timer) clearTimeout(pending.timer);
+        pending.reject(error);
+      }
+      this.pending.clear();
+      this.queuedMessages = [];
+      this.ready = false;
+      worker.terminate();
+      if (this.worker === worker) this.worker = null;
+    });
+    return worker;
+  }
+
+  run(task, payload, transfer = [], timeoutMs = 45000) {
+    const worker = this.ensureWorker();
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (!this.pending.has(id)) return;
+        this.pending.delete(id);
+        const error = new Error(`Background ${task} task timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+        reject(error);
+        if (this.worker === worker) {
+          worker.terminate();
+          this.worker = null;
+          this.ready = false;
+          this.queuedMessages = [];
+        }
+      }, timeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
+      const message = { id, task, payload };
+      if (!this.ready) {
+        this.queuedMessages.push({ id, message, transfer });
+        return;
+      }
+      try {
+        worker.postMessage(message, transfer);
+      } catch (error) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(error);
+      }
+    });
+  }
+
+  reset(reason = "Background task cancelled.") {
+    if (this.worker) this.worker.terminate();
+    this.worker = null;
+    this.ready = false;
+    this.queuedMessages = [];
+    const error = new Error(reason);
+    for (const pending of this.pending.values()) {
+      if (pending.timer) clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+}
+
+// Reliability, perspective tests, scanability and benchmarks use the proven
+// baseline WASM worker. Rayon remains available to library consumers, but a
+// thread-pool bootstrap must never block these demo tools.
+const analysisWorker = new DemoWorkerClient(new URL("./compute-worker.js?threads=0", import.meta.url));
+let generationRunning = false;
+let generationQueued = false;
+let queuedGenerationMode = null;
+let activeGenerationMode = null;
+let generationPromise = Promise.resolve();
+let generationRevision = 0;
+let scanabilityRevision = 0;
+
+function setGenerationBusy(busy, status = "Preparing…", detail = "Heavy compression and verification run off the UI thread.") {
+  generateBtn.disabled = busy;
+  generateBtn.classList.toggle("is-loading", busy);
+  generateBtn.setAttribute("aria-busy", String(busy));
+  generateBtnText.textContent = busy ? "Working…" : "Generate + verify";
+  generationStatus.textContent = status;
+  generationStatusDetail.textContent = detail;
+  generationOverlay.classList.toggle("hidden", !busy);
+}
+
+function updateGenerationPhase(status, detail) {
+  if (!generationRunning) return;
+  generationStatus.textContent = status;
+  if (detail) generationStatusDetail.textContent = detail;
+}
+
+function transferableImageData(imageData) {
+  return { width: imageData.width, height: imageData.height, data: imageData.data };
+}
+
+function highDensityEnabled(element) {
+  return element?.value === "true";
+}
+
+function rebuildCompressionLevelOptions(min, max, selected, formatter) {
+  compressionLevelEl.innerHTML = "";
+  for (let level = min; level <= max; level++) {
+    const option = document.createElement("option");
+    option.value = String(level);
+    option.textContent = formatter(level);
+    if (level === selected) option.selected = true;
+    compressionLevelEl.appendChild(option);
+  }
+}
+
+function updateCompressionUi() {
+  const mode = compressionModeEl.value;
+  const explicit = mode === "lz" || mode === "deflate" || mode === "brotli";
+  compressionLevelFieldsEl.classList.toggle("hidden", !explicit);
+
+  if (mode === "lz") {
+    compressionLevelLabelEl.textContent = "LZ level";
+    rebuildCompressionLevelOptions(1, 9, 6, (level) => `${level}${level === 1 ? " · fastest" : level === 6 ? " · default / legacy-compatible" : level === 9 ? " · strongest" : ""}`);
+    compressionHintEl.textContent = "Forced LZ uses the selected level. Levels 1–9 change how deeply the encoder searches its legacy 4 KB history; level 6 preserves the historical QuadQR search depth. The stored LZ format and decoder stay unchanged.";
+    return;
+  }
+  if (mode === "deflate") {
+    compressionLevelLabelEl.textContent = "DEFLATE level";
+    rebuildCompressionLevelOptions(1, 9, 6, (level) => `${level}${level === 1 ? " · fastest" : level === 6 ? " · default / balanced" : level === 9 ? " · strongest" : ""}`);
+    compressionHintEl.textContent = "Forced DEFLATE uses the selected level. Levels 1–9 change match-search depth and CPU cost; level 6 is the portable default. The decoder does not need to know the level.";
+    return;
+  }
+  if (mode === "brotli") {
+    compressionLevelLabelEl.textContent = "Brotli quality";
+    rebuildCompressionLevelOptions(0, 11, 11, (level) => `${level}${level === 0 ? " · fastest" : level === 6 ? " · balanced" : level === 11 ? " · default / maximum" : ""}`);
+    compressionHintEl.textContent = "Forced Brotli uses the selected quality 0–11. Quality 11 is the explicit Brotli default and may be CPU-heavy, so generation stays inside the worker.";
+    return;
+  }
+  if (mode === "smart") {
+    compressionHintEl.textContent = "Smart is CPU-heavy by design. It starts with LZ 6 + DEFLATE 6 + Brotli 6, then tests DEFLATE 8 / Brotli 9 and, only near a smaller-version boundary, DEFLATE 9 / Brotli 11. LZ stays at its default level because Smart escalation is focused on the stronger modern codecs.";
+    return;
+  }
+  if (mode === "auto") {
+    compressionHintEl.textContent = "Auto is the fast default. It performs one balanced pass with LZ level 6, DEFLATE level 6, and Brotli quality 6, then chooses the smallest final representation including envelope overhead.";
+    return;
+  }
+  compressionHintEl.textContent = "Compression is disabled and the source payload is stored directly.";
+}
+
+function selectedCompressionLevel() {
+  const mode = compressionModeEl.value;
+  if (mode !== "lz" && mode !== "deflate" && mode !== "brotli") return null;
+  return Number(compressionLevelEl.value);
+}
+
+function rebuildVersions() {
+  const selected = versionEl.value || "auto";
+  const ecc = eccLevelEl.value;
+  versionEl.innerHTML = '<option value="auto">Auto smallest</option>';
+
+  for (let version = 1; version <= MAX_VERSION; version++) {
+    const info = getVersionInfo(version, { ecc, highDensity: highDensityEnabled(highDensityModeEl) });
+    const option = document.createElement("option");
+    option.value = String(version);
+    option.textContent = `v${version} · ${info.size}×${info.size} · ${info.capacityBytes} B`;
+    option.disabled = info.capacityBytes <= 0;
+    versionEl.appendChild(option);
+  }
+
+  if ([...versionEl.options].some((option) => option.value === selected && !option.disabled)) {
+    versionEl.value = selected;
+  }
+}
+
+function setPill(element, state, text) {
+  element.className = `pill ${state}`;
+  element.textContent = text;
+}
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.classList.remove("hidden");
+}
+
+function clearError() {
+  errorBox.textContent = "";
+  errorBox.classList.add("hidden");
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error || new Error("Unable to read logo image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load the selected logo image."));
+    image.src = source;
+  });
+}
+
+async function imageFileToImageData(file, maxDimension = 1800) {
+  let source = null;
+  let revoke = null;
+  try {
+    if (typeof createImageBitmap === "function") {
+      try {
+        source = await createImageBitmap(file);
+      } catch {
+        // SVG and a few browser codecs may not be supported by createImageBitmap.
+      }
+    }
+    if (!source) {
+      const url = URL.createObjectURL(file);
+      revoke = () => URL.revokeObjectURL(url);
+      source = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Unable to decode the selected image."));
+        image.src = url;
+      });
+    }
+
+    const sourceWidth = source.naturalWidth ?? source.width;
+    const sourceHeight = source.naturalHeight ?? source.height;
+    if (!sourceWidth || !sourceHeight) throw new Error("Selected image has invalid dimensions.");
+    const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const scratch = document.createElement("canvas");
+    scratch.width = width;
+    scratch.height = height;
+    const ctx = scratch.getContext("2d", { willReadFrequently: true, alpha: false });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, 0, 0, width, height);
+    return ctx.getImageData(0, 0, width, height);
+  } finally {
+    source?.close?.();
+    revoke?.();
+  }
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function updateLogoUploadUi(file = null) {
+  const hasFile = Boolean(file);
+  logoUploadEl.classList.toggle("has-file", hasFile);
+  logoFileNameEl.textContent = file?.name || "Choose a logo";
+  logoFileMetaEl.textContent = file
+    ? [file.type?.replace("image/", "").replace("svg+xml", "SVG").toUpperCase(), formatFileSize(file.size)].filter(Boolean).join(" · ")
+    : "PNG, JPG, WEBP or SVG";
+  logoEnabledEl.disabled = !hasFile;
+  removeLogoBtn.disabled = !hasFile;
+  if (!hasFile) logoEnabledEl.checked = false;
+}
+
+function updateSvgPreview(svg) {
+  qrPreviewEl.innerHTML = svg.replace(/^<\?xml[^>]*>\s*/i, "");
+  const element = qrPreviewEl.querySelector("svg");
+  if (!element) return;
+  element.removeAttribute("width");
+  element.removeAttribute("height");
+  element.setAttribute("aria-hidden", "true");
+}
+
+function generatorRenderOptions({ svg = false } = {}) {
+  const options = {
+    imageSize: Number(imageSizeEl.value),
+    quietZone: Number(quietZoneEl.value),
+    style: renderStyleEl.value,
+    mode: renderModeEl.value
+  };
+
+  if (logoEnabledEl.checked && currentLogoImage && currentLogoDataUrl) {
+    options.logo = {
+      source: svg ? currentLogoDataUrl : currentLogoImage,
+      size: logoSizeEl.value === "auto" ? "auto" : Number(logoSizeEl.value),
+      clearBackground: logoClearBackgroundEl.checked,
+      padding: 0.65,
+      radius: 0.8
+    };
+  }
+
+  return options;
+}
+
+function updateStats(code) {
+  const values = [
+    `${code.size}×${code.size} (v${code.version})`,
+    `${Number(imageSizeEl.value)}×${Number(imageSizeEl.value)} px`,
+    code.sourcePayloadBytes !== code.payloadBytes ? `${code.sourcePayloadBytes} B source · ${code.payloadBytes} B encoded` : `${code.payloadBytes} B`,
+    `${code.capacityBytes} B`,
+    `${code.bitsPerDataCell} bits/cell · ${code.highDensity ? "High Density · Experimental" : "Normal RGBW"}`,
+    `${code.eccLevel} · ${code.eccParitySymbols} parity bytes`,
+    `${code.alignmentPatterns} pattern${code.alignmentPatterns === 1 ? "" : "s"}`,
+    `${code.eccBlocks} · correct ${code.correctableSymbolsPerBlock}/block`,
+    String(code.maskId),
+    `${(code.utilization * 100).toFixed(1)}%`,
+    [
+      code.compressed
+        ? `${String(code.compression || "compressed").toUpperCase()} compressed${code.compressionLevel != null ? ` · level ${code.compressionLevel}` : ""}${code.compressionStrategy === "smart" ? " · Smart" : ""}`
+        : (code.compressionStrategy === "smart" ? "Smart checked · raw kept" : null),
+      code.signed ? "Ed25519 signed" : null,
+      code.secure ? `${code.security?.mode === "raw-key" ? "Raw key" : "Password"} encrypted` : null
+    ].filter(Boolean).join(" · ") || "None",
+    code.crc32.toString(16).padStart(8, "0").toUpperCase()
+  ];
+
+  [...statsEl.querySelectorAll("dd")].forEach((dd, index) => {
+    dd.textContent = values[index];
+  });
+}
+
+function securityOptionsFromGenerator() {
+  const mode = securityModeEl.value;
+  if (mode === "none") return null;
+  if (mode === "password") {
+    if (!securityPasswordEl.value) throw new Error("Enter a password for Secure Payload mode.");
+    return { mode: "password", password: securityPasswordEl.value };
+  }
+  if (!securityRawKeyEl.value.trim()) throw new Error("Enter or generate a raw 256-bit key.");
+  return { mode: "raw-key", key: securityRawKeyEl.value.trim() };
+}
+
+function signingOptionsFromGenerator() {
+  if (!signPayloadEl.checked) return null;
+  if (!signingKeyPair) throw new Error("Generate an Ed25519 signing key pair before creating a signed QuadQR.");
+  return {
+    privateKey: signingKeyPair.privateKey,
+    keyId: signingKeyIdEl.value.trim() || signingKeyPair.keyId
+  };
+}
+
+function updateSigningUi() {
+  signingFieldsEl.classList.toggle("hidden", !signPayloadEl.checked);
+  if (!signPayloadEl.checked) return;
+  signingKeyStatusEl.textContent = signingKeyPair
+    ? `Ready · key ID ${signingKeyPair.keyId} · public key kept outside QR`
+    : "No signing key generated.";
+}
+
+function updateRenderModeUi() {
+  const print = renderModeEl.value === "print";
+  renderStyleEl.disabled = print;
+  if (print) {
+    styleHintEl.textContent = "Print mode forces Classic rendering and darker print-safe RGB primaries. Quiet-zone sizing stays under your control. Use getPrintGuidance() when physical dimensions are known.";
+  }
+}
+
+function demoSignatureVerificationOptions(result) {
+  if (!signingKeyPair || !result?.signed) return null;
+  if (result.signingKeyId && result.signingKeyId !== signingKeyPair.keyId && result.signingKeyId !== signingKeyIdEl.value.trim()) return null;
+  return { publicKey: signingKeyPair.publicKey };
+}
+
+async function tryVerifyWithDemoKey(result) {
+  const options = demoSignatureVerificationOptions(result);
+  if (!options) return result;
+  try {
+    return await verifyDecodedSignature(result, options);
+  } catch {
+    return result;
+  }
+}
+
+async function fullyVerifyDecoded(result, security = null) {
+  let verified = result;
+  if (verified.secure && verified.requiresDecryption) verified = await decryptDecoded(verified, security);
+  if (verified.signed) {
+    const options = demoSignatureVerificationOptions(verified);
+    if (!options) throw new Error("A trusted public key is required to verify this signed QuadQR.");
+    verified = await verifyDecodedSignature(verified, options);
+  }
+  return verified;
+}
+
+function updateSecurityUi() {
+  const mode = securityModeEl.value;
+  passwordSecurityFieldsEl.classList.toggle("hidden", mode !== "password");
+  rawKeySecurityFieldsEl.classList.toggle("hidden", mode !== "raw-key");
+
+  const hints = {
+    none: "Standard mode stores the payload normally. Security is opt-in and does not alter QuadQR scanning or Spectrum ECC.",
+    password: "Password mode derives a 256-bit AES key with PBKDF2-HMAC-SHA-256 and encrypts with AES-256-GCM. The salt, nonce, and KDF settings travel inside the protected payload.",
+    "raw-key": "Raw-key mode uses an exact random 256-bit key directly with AES-256-GCM. QuadQR stores only a short SHA-256 key fingerprint so an app can identify the required key without exposing it."
+  };
+  securityHintEl.textContent = hints[mode] || hints.none;
+}
+
+function formatResult(container, result, titleText, options = {}) {
+  const locked = result.secure && result.requiresDecryption;
+  const payload = locked
+    ? `[Encrypted secure payload · ${result.payload.length} bytes]`
+    : (result.text ?? `[${result.payload.length} raw bytes]`);
+  container.className = `scan-result good${locked ? " secure-locked" : ""}`;
+  options.onSecurityState?.(locked ? "locked" : (result.decrypted ? "decrypted" : "decoded"), result);
+  container.innerHTML = "";
+
+  const title = document.createElement("strong");
+  title.textContent = locked ? `${titleText} · encrypted` : titleText;
+
+  const meta = document.createElement("div");
+  const geometry = result.perspectiveCorrected ? "perspective corrected" : "axis aligned";
+  const calibration = result.colorCalibrated ? "color calibrated" : "fixed palette";
+  const spectrum = result.spectralInterleaving ? "spectral interleaving" : "legacy placement";
+  const recovery = result.softDecoded
+    ? `Spectrum ECC 2.0 soft recovery (${result.softSubstitutions ?? 0} cell substitution${result.softSubstitutions === 1 ? "" : "s"})`
+    : result.confidenceAssisted
+      ? `${result.erasureSymbols ?? 0} confidence erasure(s) used`
+      : "hard-decision ECC sufficient";
+  meta.textContent =
+    `v${result.version}, ECC ${result.eccLevel}, mask ${result.maskId}, ` +
+    `${result.alignmentPatterns ?? result.geometry?.alignment?.patterns ?? 1} alignment pattern(s), ` +
+    `${result.correctedSymbols ?? 0} RS byte symbols corrected, ${recovery}, ${spectrum}, ` +
+    `${geometry}, ${calibration}, confidence ${Math.round((result.confidence ?? result.diagnostics?.confidence ?? 0) * 100)}%, ` +
+    `CRC ${result.crc32.toString(16).padStart(8, "0").toUpperCase()}`;
+
+  container.append(title, meta);
+
+  if (result.secure) {
+    const secureMeta = document.createElement("div");
+    secureMeta.className = "security-meta";
+    const mode = result.security?.mode === "raw-key" ? "raw 256-bit key" : "password";
+    const keyId = result.security?.keyId ?? result.security?.keyIdHex;
+    secureMeta.textContent =
+      `Secure Payload v${result.security?.securePayloadVersion ?? 1} · AES-256-GCM · ${mode}` +
+      (keyId ? ` · key ID ${keyId}` : "") +
+      (result.decrypted ? " · decrypted" : "");
+    container.appendChild(secureMeta);
+  }
+
+  if (result.compressed || result.signed) {
+    const payloadMeta = document.createElement("div");
+    payloadMeta.className = "security-meta";
+    payloadMeta.textContent = [
+      result.compressed ? `${String(result.compression || "compressed").toUpperCase()} compressed` : null,
+      result.signed ? `Ed25519 signed${result.signingKeyId ? ` · key ID ${result.signingKeyId}` : ""}` : null,
+      result.signed && result.signatureVerified === true && result.signatureTrusted === true ? "trusted signature verified" : null,
+      result.signed && result.signatureVerified === true && result.signatureTrusted !== true ? "signature valid · signer not trusted" : null,
+      result.signed && result.signatureVerified !== true ? "needs trusted public key" : null
+    ].filter(Boolean).join(" · ");
+    container.appendChild(payloadMeta);
+  }
+
+  const data = document.createElement("pre");
+  data.textContent = payload;
+  data.style.whiteSpace = "pre-wrap";
+  data.style.marginBottom = "0";
+  container.appendChild(data);
+
+  if (locked) {
+    const label = document.createElement("div");
+    label.className = "decrypt-label";
+    label.textContent = result.security?.mode === "raw-key"
+      ? "Enter the 64-character raw key to decrypt this payload."
+      : "Enter the password to decrypt this payload.";
+
+    const controls = document.createElement("div");
+    controls.className = "decrypt-controls";
+    const input = document.createElement("input");
+    input.type = result.security?.mode === "raw-key" ? "text" : "password";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = result.security?.mode === "raw-key" ? "64 hex characters" : "Password";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.textContent = "Decrypt";
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const credentials = result.security?.mode === "raw-key"
+          ? { key: input.value.trim() }
+          : { password: input.value };
+        let decrypted = await decryptDecoded(result, credentials);
+        if (decrypted.signed) decrypted = await tryVerifyWithDemoKey(decrypted);
+        formatResult(container, decrypted, `${titleText} · secure`, options);
+      } catch (error) {
+        const errorLine = document.createElement("div");
+        errorLine.className = "error";
+        errorLine.textContent = error.message;
+        container.querySelector(".error")?.remove();
+        container.appendChild(errorLine);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") button.click();
+    });
+
+    controls.append(input, button);
+    container.append(label, controls);
+  }
+}
+
+async function renderAndVerifyCode(code, revision, security, statusPrefix = "", expectedText = null) {
+  if (revision !== generationRevision) return null;
+  updateGenerationPhase(`${statusPrefix}Rendering preview…`, "Drawing the matrix and preparing the SVG preview.");
+  const renderOptions = generatorRenderOptions();
+  renderToCanvas(code, canvas, renderOptions);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  drawImageDataToStressCanvas(imageData);
+  updateSvgPreview(renderToSVG(code, generatorRenderOptions({ svg: true })));
+  updateStats(code);
+
+  updateGenerationPhase(`${statusPrefix}Verifying encoded matrix…`, "Checking the Rust codec roundtrip before enabling downloads.");
+  // Generation must not depend on the camera/image scanner. A pristine symbol
+  // was previously re-scanned through single-thread WASM here, which made the
+  // Generator wait on the most expensive vision path. Verify the encoded matrix
+  // directly instead. Camera/image scanner correctness is tested independently.
+  const scanned = decodeMatrix(code.matrix);
+  if (revision !== generationRevision) return null;
+
+  const verified = await fullyVerifyDecoded(scanned, security);
+  if (expectedText != null && verified.text !== expectedText) {
+    throw new Error("Generated image decoded, but payload did not match.");
+  }
+
+  currentCode = code;
+  currentRenderOptions = renderOptions;
+  downloadBtn.disabled = false;
+  downloadSvgBtn.disabled = false;
+  scanabilityBtn.disabled = false;
+  setPill(
+    verificationPill,
+    "good",
+    [code.signed ? "Signed" : null, code.secure ? "Secure" : null, "Spectrum ECC verified"].filter(Boolean).join(" + ")
+  );
+  return code;
+}
+
+async function performGeneration(revision) {
+  clearError();
+  scanabilityRevision++;
+  analysisWorker.reset("Superseded by a new generation request.");
+
+  const requestedVersion = versionEl.value === "auto" ? "auto" : Number(versionEl.value);
+  const security = securityOptionsFromGenerator();
+  const signing = signingOptionsFromGenerator();
+  const commonOptions = {
+    version: requestedVersion,
+    ecc: eccLevelEl.value,
+    highDensity: highDensityEnabled(highDensityModeEl),
+    ...(selectedCompressionLevel() != null ? { compressionLevel: selectedCompressionLevel() } : {})
+  };
+
+  const compressionMode = compressionModeEl.value;
+  updateGenerationPhase(
+    compressionMode === "smart" ? "Smart compression search…" : compressionMode === "auto" ? "Compressing + encoding…" : "Encoding payload…",
+    compressionMode === "smart"
+      ? "CPU-heavy Smart mode is testing stronger DEFLATE/Brotli levels only when they can plausibly reduce the QuadQR version in Rust/WASM."
+      : compressionMode === "auto"
+        ? "Balanced Brotli quality 6, DEFLATE level 6 and legacy LZ are compared by the Rust/WASM codec."
+        : "Encoding is running through the Rust/WASM codec."
+  );
+  const expectedText = payloadEl.value;
+  // The baseline browser WASM instance is already initialized before app.js
+  // runs. Encode directly through it so Generator startup cannot be held hostage
+  // by a second worker's module bootstrap. Rust handles the actual codec work.
+  await scannerWasmReady;
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  let code;
+  if (security) {
+    code = await encodeSecureText(expectedText, {
+      ...commonOptions,
+      compression: compressionModeEl.value,
+      security,
+      ...(signing ? { signing } : {})
+    });
+  } else if (signing) {
+    code = await encodeSignedText(expectedText, {
+      ...commonOptions,
+      compression: compressionModeEl.value,
+      ...signing
+    });
+  } else {
+    code = encodeText(expectedText, {
+      ...commonOptions,
+      compression: compressionModeEl.value
+    });
+  }
+  if (revision !== generationRevision) return null;
+  return renderAndVerifyCode(code, revision, security, "", expectedText);
+}
+
+async function performRerender(revision) {
+  if (!currentCode) return performGeneration(revision);
+  clearError();
+  scanabilityRevision++;
+  analysisWorker.reset("Superseded by a render update.");
+  const security = securityOptionsFromGenerator();
+  return renderAndVerifyCode(currentCode, revision, security, "Updating · ");
+}
+
+async function runAutomaticScanability(code, revision) {
+  if (!code || revision !== generationRevision || currentCode !== code) return;
+  const safetyRevision = ++scanabilityRevision;
+  scanabilityBtn.disabled = true;
+  scanabilityScoreEl.textContent = "Testing…";
+  scanabilityMetaEl.textContent = "Background robustness checks are running. You can keep using the page.";
+  scanabilityResultsEl.innerHTML = "";
+
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  if (safetyRevision !== scanabilityRevision || revision !== generationRevision) return;
+
+  try {
+    const imageData = currentCanvasImageData(scanabilityImageSize());
+    const report = await analysisWorker.run(
+      "stress",
+      {
+        imageData: transferableImageData(imageData),
+        expected: { version: code.version, crc32: code.crc32 }
+      },
+      [imageData.data.buffer]
+    );
+    if (safetyRevision !== scanabilityRevision || revision !== generationRevision || currentCode !== code) return;
+    scanabilityScoreEl.textContent = `${report.score.toFixed(0)}/100 · ${report.rating}`;
+    scanabilityMetaEl.textContent =
+      `${report.passed}/${report.total} scenarios decoded · weighted pass ${report.passPercent.toFixed(0)}%` +
+      (logoEnabledEl.checked && currentLogoImage && logoSizeEl.value === "auto"
+        ? ` · auto logo ${(estimateSafeLogoSize(code, currentRenderOptions) * 100).toFixed(1)}%`
+        : "");
+    renderStressReport(report);
+  } catch (error) {
+    if (safetyRevision !== scanabilityRevision || revision !== generationRevision) return;
+    scanabilityScoreEl.textContent = "Safety test unavailable";
+    scanabilityMetaEl.textContent = error.message;
+  } finally {
+    if (safetyRevision === scanabilityRevision && revision === generationRevision) {
+      scanabilityBtn.disabled = false;
+    }
+  }
+}
+
+function requestGeneration(mode = "full") {
+  generationRevision++;
+  const effectiveMode = generationRunning && activeGenerationMode === "full" ? "full" : mode;
+  if (effectiveMode === "full" || queuedGenerationMode == null) queuedGenerationMode = effectiveMode;
+  if (generationRunning) {
+    generationQueued = true;
+    return generationPromise;
+  }
+
+  generationPromise = (async () => {
+    generationRunning = true;
+    setGenerationBusy(true, "Preparing…", "Starting background compute.");
+    let finalCode = null;
+    try {
+      do {
+        generationQueued = false;
+        const revision = generationRevision;
+        const taskMode = queuedGenerationMode ?? "full";
+        queuedGenerationMode = null;
+        activeGenerationMode = taskMode;
+        try {
+          const generated = taskMode === "render"
+            ? await performRerender(revision)
+            : await performGeneration(revision);
+          if (generated && revision === generationRevision) finalCode = generated;
+        } catch (error) {
+          if (revision !== generationRevision || generationQueued) continue;
+          currentCode = null;
+          currentRenderOptions = null;
+          qrPreviewEl.innerHTML = "";
+          downloadBtn.disabled = true;
+          downloadSvgBtn.disabled = true;
+          scanabilityBtn.disabled = true;
+          setPill(verificationPill, "bad", "Verification failed");
+          showError(error.message);
+        }
+      } while (generationQueued || queuedGenerationMode != null);
+    } finally {
+      activeGenerationMode = null;
+      generationRunning = false;
+      setGenerationBusy(false);
+    }
+
+    if (finalCode && currentCode === finalCode) {
+      // Keep initial generation deterministic. Reliability/scanability exercises
+      // the expensive vision scanner and is now opt-in via its existing button.
+      scanabilityScoreEl.textContent = "Ready to test";
+      scanabilityMetaEl.textContent = "Generate is complete. Run the robustness test when you want to exercise the image scanner.";
+    }
+    return finalCode;
+  })();
+
+  return generationPromise;
+}
+
+function generate() {
+  return requestGeneration("full");
+}
+
+function rerenderCurrentCode() {
+  return requestGeneration(currentCode ? "render" : "full");
+}
+
+function currentCanvasImageData(maxSize = null) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!maxSize || Math.max(canvas.width, canvas.height) <= maxSize) {
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
+  const scale = maxSize / Math.max(canvas.width, canvas.height);
+  const width = Math.max(1, Math.round(canvas.width * scale));
+  const height = Math.max(1, Math.round(canvas.height * scale));
+  const scratch = document.createElement("canvas");
+  scratch.width = width;
+  scratch.height = height;
+  const scratchCtx = scratch.getContext("2d", { willReadFrequently: true });
+  scratchCtx.imageSmoothingEnabled = true;
+  scratchCtx.imageSmoothingQuality = "high";
+  scratchCtx.drawImage(canvas, 0, 0, width, height);
+  return scratchCtx.getImageData(0, 0, width, height);
+}
+
+function scanabilityImageSize() {
+  if (!currentCode) return 480;
+  const matrixModules = currentCode.matrix?.length ?? (21 + 4 * (currentCode.version - 1));
+  const quietZone = Math.max(0, Number(quietZoneEl.value) || 0);
+  const totalModules = matrixModules + quietZone * 2;
+  const densityAwareTarget = Math.ceil(totalModules * 10);
+  return Math.min(
+    Math.max(canvas.width, canvas.height),
+    Math.max(480, densityAwareTarget)
+  );
+}
+
+function drawImageDataToStressCanvas(imageData) {
+  stressCanvas.width = imageData.width;
+  stressCanvas.height = imageData.height;
+  const ctx = stressCanvas.getContext("2d");
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height), 0, 0);
+}
+
+function renderStressReport(report, container = scanabilityResultsEl) {
+  container.innerHTML = "";
+  for (const item of report.results) {
+    const chip = document.createElement("div");
+    chip.className = `stress-result-chip ${item.passed ? "good" : "bad"}`;
+    chip.textContent = `${item.passed ? "✓" : "✕"} ${item.label} · ${item.passed ? `${Math.round((item.confidence ?? 0) * 100)}%` : "failed"}`;
+    container.appendChild(chip);
+  }
+}
+
+async function runScanabilityTest() {
+  if (!currentCode) return;
+  const code = currentCode;
+  const revision = ++scanabilityRevision;
+  analysisWorker.reset("Starting a manual scanability test.");
+  scanabilityBtn.disabled = true;
+  scanabilityScoreEl.textContent = "Testing…";
+  scanabilityMetaEl.textContent = "Applying camera-style distortions in a background worker.";
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  try {
+    const imageData = currentCanvasImageData(scanabilityImageSize());
+    const report = await analysisWorker.run(
+      "stress",
+      {
+        imageData: transferableImageData(imageData),
+        expected: { version: code.version, crc32: code.crc32 }
+      },
+      [imageData.data.buffer]
+    );
+    if (revision !== scanabilityRevision || currentCode !== code) return;
+    scanabilityScoreEl.textContent = `${report.score.toFixed(0)}/100 · ${report.rating}`;
+    scanabilityMetaEl.textContent = `${report.passed}/${report.total} scenarios decoded · weighted pass ${report.passPercent.toFixed(0)}%`;
+    renderStressReport(report);
+  } catch (error) {
+    if (revision !== scanabilityRevision) return;
+    scanabilityScoreEl.textContent = "Test failed";
+    scanabilityMetaEl.textContent = error.message;
+  } finally {
+    if (revision === scanabilityRevision) scanabilityBtn.disabled = false;
+  }
+}
+
+function calculateCapacityUi() {
+  const plan = calculateCapacityPlan({
+    payloadBytes: Number(capacityPayloadBytesEl.value),
+    ecc: capacityEccEl.value,
+    highDensity: highDensityEnabled(capacityHighDensityEl),
+    signed: capacitySignedEl.value === "true",
+    compression: capacityCompressionEl.value
+  });
+  capacityPlanResultEl.className = `scan-result ${plan.quadqrVersion ? "good" : "bad"}`;
+  if (!plan.quadqrVersion) {
+    capacityPlanResultEl.textContent = `The requested payload does not fit QuadQR v1–v40 with ECC ${plan.ecc}.`;
+    return;
+  }
+  const standard = plan.standardQrVersion
+    ? `Standard QR byte mode: v${plan.standardQrVersion} (${plan.standardQrSize}×${plan.standardQrSize})`
+    : "Standard QR byte mode: exceeds v40";
+  capacityPlanResultEl.textContent =
+    `QuadQR: v${plan.quadqrVersion} (${plan.quadqrSize}×${plan.quadqrSize}), ${plan.encodedBytes} encoded bytes, ` +
+    `${plan.remainingBytes} bytes remaining, ${plan.utilizationPercent.toFixed(1)}% used. ${standard}.` +
+    (plan.matrixWidthSavingsPercent != null ? ` Matrix width reduction: ${plan.matrixWidthSavingsPercent.toFixed(1)}%.` : "") +
+    (plan.compression === "unknown" ? " Compression cannot be predicted from a byte count alone, so this estimate assumes no compression gain." : "");
+}
+
+function reliabilityImageSize() {
+  if (!currentCode) return 520;
+  const matrixModules = currentCode.matrix?.length ?? (21 + 4 * (currentCode.version - 1));
+  const quietZone = Math.max(0, Number(quietZoneEl.value) || 0);
+  const pixelsPerModule = Math.max(6, Number(reliabilityImageScaleEl.value) || 10);
+  const target = Math.ceil((matrixModules + quietZone * 2) * pixelsPerModule);
+  return Math.min(Math.max(canvas.width, canvas.height), Math.max(360, target));
+}
+
+function reliabilityPreviewImage(item) {
+  if (!lastReliabilitySourceImage) {
+    throw new Error("Run the Reliability Lab first so the exact source image is available.");
+  }
+  const scenario = RELIABILITY_PREVIEW_SCENARIOS[item.id ?? item.name];
+  if (!scenario) {
+    throw new Error(`No preview definition is available for ${item.label ?? item.id}.`);
+  }
+  const source = {
+    width: lastReliabilitySourceImage.width,
+    height: lastReliabilitySourceImage.height,
+    data: new Uint8ClampedArray(lastReliabilitySourceImage.data)
+  };
+  if (scenario.type === "clean") return source;
+  return applyStressDistortion(source, scenario.type, scenario.severity, scenario.options);
+}
+
+function showReliabilityPreview(item) {
+  try {
+    const imageData = reliabilityPreviewImage(item);
+    reliabilityPreviewTitle.textContent = item.label ?? item.name ?? "Reliability scenario";
+    reliabilityPreviewMeta.textContent = `${item.category ?? "Other"} · ${item.passed ? "Passed" : "Failed"} · ${item.elapsedMs.toFixed(1)} ms`;
+    reliabilityPreviewCanvas.width = imageData.width;
+    reliabilityPreviewCanvas.height = imageData.height;
+    const context = reliabilityPreviewCanvas.getContext("2d");
+    context.putImageData(
+      new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height),
+      0,
+      0
+    );
+    if (typeof reliabilityPreviewDialog.showModal === "function") {
+      reliabilityPreviewDialog.showModal();
+    } else {
+      reliabilityPreviewDialog.setAttribute("open", "");
+    }
+  } catch (error) {
+    reliabilityStatusEl.className = "scan-result bad";
+    reliabilityStatusEl.textContent = error.message;
+  }
+}
+
+function renderReliabilityReport(report) {
+  reliabilityResultsBody.innerHTML = "";
+  for (const item of report.results) {
+    const tr = document.createElement("tr");
+    const values = [
+      item.label,
+      item.category ?? "Other",
+      item.passed ? "Passed" : "Failed",
+      item.passed && Number.isFinite(item.confidence) ? `${Math.round(item.confidence * 100)}%` : "--",
+      item.correctedSymbols == null ? "--" : String(item.correctedSymbols),
+      `${item.elapsedMs.toFixed(1)} ms`
+    ];
+    const labels = ["Scenario", "Category", "Result", "Confidence", "RS corrected", "Time"];
+    values.forEach((value, index) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      td.dataset.label = labels[index];
+      if (index === 2) td.className = item.passed ? "reliability-pass" : "reliability-fail";
+      tr.appendChild(td);
+    });
+    const previewCell = document.createElement("td");
+    previewCell.dataset.label = "Preview";
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.className = "secondary compact reliability-preview-button";
+    previewButton.textContent = "Preview";
+    previewButton.addEventListener("click", () => showReliabilityPreview(item));
+    previewCell.appendChild(previewButton);
+    tr.appendChild(previewCell);
+    reliabilityResultsBody.appendChild(tr);
+  }
+}
+
+async function runReliabilityUi() {
+  if (!currentCode) {
+    reliabilityStatusEl.className = "scan-result bad";
+    reliabilityStatusEl.textContent = "Generate a QuadQR first.";
+    return;
+  }
+  const code = currentCode;
+  analysisWorker.reset("Starting Reliability Lab.");
+  scanabilityRevision++;
+  runReliabilityBtn.disabled = true;
+  setPill(reliabilityPill, "neutral", "Running");
+  reliabilityStatusEl.className = "scan-result";
+  reliabilityStatusEl.textContent = "Running deterministic camera and perspective scenarios in the background…";
+  reliabilityResultsBody.innerHTML = '<tr><td colspan="7" class="muted-cell">Running reliability tests…</td></tr>';
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  try {
+    const imageData = currentCanvasImageData(reliabilityImageSize());
+    lastReliabilitySourceImage = {
+      width: imageData.width,
+      height: imageData.height,
+      data: new Uint8ClampedArray(imageData.data)
+    };
+    const report = await analysisWorker.run(
+      "reliability",
+      {
+        imageData: transferableImageData(imageData),
+        expected: { version: code.version, crc32: code.crc32 },
+        options: { suite: reliabilitySuiteEl.value }
+      },
+      [imageData.data.buffer],
+      180000
+    );
+    if (currentCode !== code) return;
+    reliabilityScoreEl.textContent = `${report.score.toFixed(0)}/100`;
+    reliabilityRatingEl.textContent = `${report.rating} · ${report.suite}`;
+    reliabilityPassedEl.textContent = `${report.passed}/${report.total}`;
+    reliabilityConfidenceEl.textContent = `${Math.round(report.averageConfidence * 100)}%`;
+    reliabilityWeakestEl.textContent = report.weakestCategory
+      ? `${report.weakestCategory.category} ${report.weakestCategory.score.toFixed(0)}%`
+      : "--";
+    reliabilityStatusEl.className = `scan-result ${report.score >= 75 ? "good" : "bad"}`;
+    reliabilityStatusEl.textContent =
+      `${report.rating} · weighted pass ${report.passPercent.toFixed(0)}% · ` +
+      `${report.passed}/${report.total} CRC-verified scenarios decoded.`;
+    setPill(reliabilityPill, report.score >= 75 ? "good" : "bad", `${report.score.toFixed(0)}/100`);
+    renderReliabilityReport(report);
+  } catch (error) {
+    if (currentCode !== code) return;
+    setPill(reliabilityPill, "bad", "Failed");
+    reliabilityStatusEl.className = "scan-result bad";
+    reliabilityStatusEl.textContent = error.message;
+    reliabilityResultsBody.innerHTML = `<tr><td colspan="7" class="muted-cell">${error.message}</td></tr>`;
+  } finally {
+    runReliabilityBtn.disabled = false;
+  }
+}
+
+function updatePerspectiveLabels() {
+  perspectivePitchValueEl.textContent = `${perspectivePitchEl.value}°`;
+  perspectiveYawValueEl.textContent = `${perspectiveYawEl.value}°`;
+  perspectiveRollValueEl.textContent = `${perspectiveRollEl.value}°`;
+}
+
+function currentPerspectiveOptions() {
+  return {
+    pitchDegrees: Number(perspectivePitchEl.value),
+    yawDegrees: Number(perspectiveYawEl.value),
+    rollDegrees: Number(perspectiveRollEl.value),
+    fill: 0.84,
+    cameraDistance: 3
+  };
+}
+
+async function testPerspectiveUi() {
+  if (!currentCode) {
+    perspectiveResultEl.className = "scan-result bad";
+    perspectiveResultEl.textContent = "Generate a QuadQR first.";
+    return;
+  }
+  const code = currentCode;
+  analysisWorker.reset("Starting perspective test.");
+  scanabilityRevision++;
+  testPerspectiveBtn.disabled = true;
+  const transform = currentPerspectiveOptions();
+  perspectiveResultEl.className = "scan-result";
+  perspectiveResultEl.textContent = "Transforming and scanning in the background…";
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  try {
+    const imageData = currentCanvasImageData();
+    const result = await analysisWorker.run(
+      "perspective-test",
+      {
+        imageData: transferableImageData(imageData),
+        transform,
+        scanOptions: { minVersion: code.version, maxVersion: code.version }
+      },
+      [imageData.data.buffer],
+      90000
+    );
+    if (currentCode !== code) return;
+    drawImageDataToStressCanvas(result.distorted);
+    if (result.error) throw new Error(result.error.message);
+    const decoded = result.decoded;
+    const matches = decoded.crc32 === code.crc32;
+    perspectiveResultEl.className = `scan-result ${matches ? "good" : "bad"}`;
+    const gridScore = decoded.geometry?.alignment?.gridScore;
+    perspectiveResultEl.textContent = matches
+      ? `Decoded · X ${transform.pitchDegrees}° · Y ${transform.yawDegrees}° · Z ${transform.rollDegrees}° · ` +
+        `confidence ${Math.round((decoded.confidence ?? 0) * 100)}% · ` +
+        `${decoded.correctedSymbols ?? 0} RS corrected` +
+        (Number.isFinite(gridScore) ? ` · geometry ${(gridScore * 100).toFixed(0)}%` : "")
+      : "A symbol decoded, but the payload CRC did not match.";
+  } catch (error) {
+    perspectiveResultEl.className = "scan-result bad";
+    perspectiveResultEl.textContent = `Failed at X ${transform.pitchDegrees}° · Y ${transform.yawDegrees}° · Z ${transform.rollDegrees}° · ${error.message}`;
+  } finally {
+    testPerspectiveBtn.disabled = false;
+  }
+}
+
+async function runPerspectiveSweepUi() {
+  if (!currentCode) {
+    perspectiveResultEl.className = "scan-result bad";
+    perspectiveResultEl.textContent = "Generate a QuadQR first.";
+    return;
+  }
+  const code = currentCode;
+  analysisWorker.reset("Starting perspective sweep.");
+  scanabilityRevision++;
+  runPerspectiveSweepBtn.disabled = true;
+  perspectiveSweepResultsEl.innerHTML = "";
+  perspectiveResultEl.className = "scan-result";
+  perspectiveResultEl.textContent = "Sweeping camera angles in the background…";
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  try {
+    const axis = perspectiveSweepAxisEl.value;
+    const base = currentPerspectiveOptions();
+    const angles = axis === "roll" ? [0, 20, 35, 50, 65, 75] : [0, 15, 25, 35, 45, 55];
+    const imageData = currentCanvasImageData();
+    const report = await analysisWorker.run(
+      "perspective-sweep",
+      {
+        imageData: transferableImageData(imageData),
+        expected: { version: code.version, crc32: code.crc32 },
+        options: { axis, angles, ...base }
+      },
+      [imageData.data.buffer],
+      180000
+    );
+    if (currentCode !== code) return;
+    const axisLabel = axis === "roll" ? "Z rotation" : axis === "pitch" ? "X pitch" : "Y yaw";
+    perspectiveResultEl.className = `scan-result ${report.passed >= Math.ceil(report.total * 0.65) ? "good" : "bad"}`;
+    perspectiveResultEl.textContent =
+      `${axisLabel} sweep · ${report.passed}/${report.total} passed · ` +
+      `maximum passing test angle ${report.maxPassedAngle == null ? "none" : `${report.maxPassedAngle}°`}.`;
+    for (const item of report.results) {
+      const chip = document.createElement("div");
+      chip.className = `stress-result-chip ${item.passed ? "good" : "bad"}`;
+      chip.textContent = `${item.passed ? "✓" : "✕"} ${item.angle}°${item.passed ? ` · ${Math.round((item.confidence ?? 0) * 100)}%` : ""}`;
+      perspectiveSweepResultsEl.appendChild(chip);
+    }
+  } catch (error) {
+    perspectiveResultEl.className = "scan-result bad";
+    perspectiveResultEl.textContent = error.message;
+  } finally {
+    runPerspectiveSweepBtn.disabled = false;
+  }
+}
+
+function formatMs(value) {
+  return `${value.toFixed(3)} ms`;
+}
+
+function renderCapacityBenchmark() {
+  const options = {
+    ecc: benchmarkEccEl.value,
+    versions: [1, 2, 5, 10, 20, 30, 40]
+  };
+  const normalRows = buildCapacityComparison({ ...options, highDensity: false });
+  const highDensityRows = buildCapacityComparison({ ...options, highDensity: true });
+
+  capacityBenchmarkBody.innerHTML = "";
+  for (let index = 0; index < normalRows.length; index++) {
+    const normal = normalRows[index];
+    const dense = highDensityRows[index];
+    const tr = document.createElement("tr");
+    const normalRatio = normal.ratio == null ? "n/a" : `${normal.ratio.toFixed(2)}×`;
+    const denseRatio = dense.ratio == null ? "n/a" : `${dense.ratio.toFixed(2)}×`;
+    const values = [
+      `v${normal.version}`,
+      `${normal.size}×${normal.size}`,
+      `${normal.quadqrBytes} B`,
+      `${dense.quadqrBytes} B`,
+      `${normal.standardQrBytes} B`,
+      normalRatio,
+      denseRatio
+    ];
+    const labels = [
+      "Version",
+      "Matrix",
+      "QuadQR",
+      "High Density Triangle16 (Experimental)",
+      "Standard QR",
+      "Normal ratio",
+      "High density ratio"
+    ];
+    values.forEach((value, valueIndex) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      td.dataset.label = labels[valueIndex];
+      tr.appendChild(td);
+    });
+    capacityBenchmarkBody.appendChild(tr);
+  }
+}
+
+async function runBenchmark() {
+  runBenchmarkBtn.disabled = true;
+  setPill(benchmarkPill, "neutral", "Running");
+  speedBenchmarkBody.innerHTML = '<tr><td colspan="7" class="muted-cell">Running benchmark in a background worker…</td></tr>';
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  try {
+    renderCapacityBenchmark();
+    analysisWorker.reset("Starting codec benchmark.");
+    scanabilityRevision++;
+    const benchmarkOptions = {
+      ecc: benchmarkEccEl.value,
+      iterations: Number(benchmarkIterationsEl.value),
+      payloadSizes: [32, 128, 512, 1024, 2048]
+    };
+    const workerReport = await analysisWorker.run("benchmark", { options: benchmarkOptions }, [], 180000);
+    const reports = [
+      { label: "Normal RGBW", report: workerReport.normal },
+      { label: "High Density · Experimental", report: workerReport.highDensity }
+    ];
+
+    speedBenchmarkBody.innerHTML = "";
+    for (const { label: modeLabel, report } of reports) {
+      for (const row of report.results) {
+        const tr = document.createElement("tr");
+        if (row.skipped) {
+          const mode = document.createElement("td");
+          mode.textContent = modeLabel;
+          mode.dataset.label = "Mode";
+          const payload = document.createElement("td");
+          payload.textContent = `${row.payloadBytes} B`;
+          payload.dataset.label = "Payload";
+          const reason = document.createElement("td");
+          reason.colSpan = 5;
+          reason.textContent = row.reason;
+          reason.className = "muted-cell";
+          tr.append(mode, payload, reason);
+        } else {
+          const values = [
+            modeLabel,
+            `${row.payloadBytes} B`,
+            `${row.size}×${row.size} (v${row.version})`,
+            formatMs(row.encode.meanMs),
+            formatMs(row.encode.p95Ms),
+            formatMs(row.decode.meanMs),
+            formatMs(row.decode.p95Ms)
+          ];
+          const labels = ["Mode", "Payload", "Matrix", "Encode mean", "Encode p95", "Decode mean", "Decode p95"];
+          values.forEach((value, index) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            td.dataset.label = labels[index];
+            tr.appendChild(td);
+          });
+        }
+        speedBenchmarkBody.appendChild(tr);
+      }
+    }
+    setPill(benchmarkPill, "good", "Complete");
+  } catch (error) {
+    speedBenchmarkBody.innerHTML = "";
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 7;
+    td.className = "muted-cell";
+    td.textContent = error.message;
+    tr.appendChild(td);
+    speedBenchmarkBody.appendChild(tr);
+    setPill(benchmarkPill, "bad", "Failed");
+  } finally {
+    runBenchmarkBtn.disabled = false;
+  }
+}
+
+function friendlyScanMethod(method) {
+  const names = {
+    "camera": "Camera",
+    "fast-scan": "Fast scan",
+    "finder-recovery": "Finder recovery",
+    "high-resolution-geometry-recovery": "High-res geometry",
+    "camera-auto-color": "QuadQR Camera Auto Color",
+    "progressive-color-recovery": "Color recovery",
+    "qr-region-auto-enhance": "QR color enhance",
+    "module-grid-auto-tone-contrast-color": "Module auto enhance",
+    "rectified-auto-tone-contrast-color": "Rectified auto enhance",
+    "multi-frame-vote": "Multi-frame ECC",
+    "multi-frame-confidence-fusion": "Multi-frame fusion",
+    "refined-center": "Geometry refine",
+    "cross": "Fast scan",
+    "median": "Robust sample"
+  };
+  if (!method) return "Searching";
+  if (names[method]) return names[method];
+  if (String(method).startsWith("camera-auto-color-")) return "QuadQR Camera Auto Color";
+  if (String(method).includes("auto-tone-contrast-color")) return "Auto Tone / Contrast / Color";
+  return String(method).replaceAll("-", " ");
+}
+
+function friendlyFinderMethod(method) {
+  const names = {
+    "rgb-value-otsu": "RGB value/Otsu",
+    "rgb-value-otsu-two-finder-recovery": "RGB value/two-finder recovery",
+    "auto-color-value-otsu": "QuadQR Auto Color value/Otsu",
+    "rgb-value-high-threshold": "RGB value/high threshold",
+    "rgb-value-low-threshold": "RGB value/low threshold",
+    "luminance-otsu": "Luminance/Otsu"
+  };
+  if (!method) return "";
+  if (names[method]) return names[method];
+  if (String(method).endsWith("-two-finder-recovery")) return `${String(method).replace("-two-finder-recovery", "").replaceAll("-", " ")} / two-finder recovery`;
+  const match = String(method).match(/^auto-color-center(\d+)-(otsu|high)$/);
+  if (match) return `QuadQR Auto Color center ${Number(match[1])}%/${match[2] === "otsu" ? "Otsu" : "high"}`;
+  return String(method).replaceAll("-", " ");
+}
+
+function bestDiagnosticPass(diagnostic) {
+  const passes = diagnostic?.vision?.passes;
+  if (!Array.isArray(passes) || !passes.length) return diagnostic?.bestPass ?? null;
+  return passes.slice().sort((a, b) => {
+    const ag = a.geometries?.[0];
+    const bg = b.geometries?.[0];
+    return (Boolean(bg) - Boolean(ag)) ||
+      ((b.finderCount ?? 0) - (a.finderCount ?? 0)) ||
+      ((bg?.score ?? 0) - (ag?.score ?? 0));
+  })[0];
+}
+
+function resetCameraDiagnosticsUi() {
+  lastCameraFrameDiagnostic = null;
+  lastCameraUiUpdate = 0;
+  cameraMethodStat.textContent = "Idle";
+  cameraFinderStat.textContent = "0 / 3";
+  cameraGeometryStat.textContent = "Not found";
+  cameraFrameStat.textContent = "--";
+  cameraHudText.textContent = "Idle";
+  cameraFinderHud.textContent = "Finders 0/3";
+  cameraFinderHud.classList.remove("found");
+  cameraLiveHud.classList.remove("scanning", "found", "locked");
+  clearCameraOverlay();
+}
+
+function resetCameraLog() {
+  cameraLogLines = [];
+  lastCameraLogSignature = "";
+  cameraLog.innerHTML = '<div class="scanner-log-line muted">Camera diagnostics ready.</div>';
+}
+
+function formatLogTime(timestamp) {
+  return new Date(timestamp ?? Date.now()).toLocaleTimeString([], {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+function appendCameraLog(message, level = "", signature = message) {
+  if (!message || signature === lastCameraLogSignature) return;
+  lastCameraLogSignature = signature;
+  const line = `${formatLogTime(Date.now())}  ${message}`;
+  cameraLogLines.push(line);
+  if (cameraLogLines.length > 40) cameraLogLines.shift();
+
+  const element = document.createElement("div");
+  element.className = `scanner-log-line${level ? ` ${level}` : ""}`;
+  element.textContent = line;
+  cameraLog.appendChild(element);
+  while (cameraLog.children.length > 40) cameraLog.firstElementChild?.remove();
+  cameraLog.scrollTop = cameraLog.scrollHeight;
+}
+
+function clearCameraOverlay() {
+  if (!cameraOverlay) return;
+  const ctx = cameraOverlay.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, cameraOverlay.width, cameraOverlay.height);
+}
+
+function clearFrozenCameraFrame() {
+  if (!cameraFreezeFrame) return;
+  cameraFreezeFrame.classList.remove("visible");
+  const ctx = cameraFreezeFrame.getContext("2d");
+  if (ctx && cameraFreezeFrame.width && cameraFreezeFrame.height) {
+    ctx.clearRect(0, 0, cameraFreezeFrame.width, cameraFreezeFrame.height);
+  }
+}
+
+function freezeCapturedCameraFrame(frameMeta) {
+  const imageData = frameMeta?.imageData;
+  if (!cameraFreezeFrame || !imageData?.data || !imageData.width || !imageData.height) {
+    return freezeCurrentCameraFrame();
+  }
+
+  cameraFreezeFrame.width = imageData.width;
+  cameraFreezeFrame.height = imageData.height;
+  const ctx = cameraFreezeFrame.getContext("2d", { alpha: false });
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height), 0, 0);
+  cameraFreezeFrame.classList.add("visible");
+  return true;
+}
+
+function freezeCurrentCameraFrame() {
+  if (!cameraFreezeFrame || !cameraVideo.videoWidth || !cameraVideo.videoHeight) return false;
+  const rect = cameraVideo.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cameraFreezeFrame.width = Math.max(1, Math.round(rect.width * dpr));
+  cameraFreezeFrame.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = cameraFreezeFrame.getContext("2d", { alpha: false });
+  if (!ctx) return false;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const sourceWidth = cameraVideo.videoWidth;
+  const sourceHeight = cameraVideo.videoHeight;
+  const scale = Math.max(rect.width / sourceWidth, rect.height / sourceHeight);
+  let cropWidth = Math.min(sourceWidth, rect.width / scale);
+  let cropHeight = Math.min(sourceHeight, rect.height / scale);
+  const sourceX = Math.max(0, (sourceWidth - cropWidth) / 2);
+  const sourceY = Math.max(0, (sourceHeight - cropHeight) / 2);
+  cropWidth = Math.min(cropWidth, sourceWidth - sourceX);
+  cropHeight = Math.min(cropHeight, sourceHeight - sourceY);
+
+  ctx.drawImage(
+    cameraVideo,
+    sourceX, sourceY, cropWidth, cropHeight,
+    0, 0, rect.width, rect.height
+  );
+  cameraFreezeFrame.classList.add("visible");
+  return true;
+}
+
+function prepareOverlayCanvas() {
+  const rect = cameraVideo.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+  if (cameraOverlay.width !== width || cameraOverlay.height !== height) {
+    cameraOverlay.width = width;
+    cameraOverlay.height = height;
+  }
+  const ctx = cameraOverlay.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  return { ctx, width: rect.width, height: rect.height };
+}
+
+function drawFinderBox(ctx, finder, sx, sy, label, confirmed, offsetX = 0, offsetY = 0) {
+  const x = (finder.x + offsetX) * sx;
+  const y = (finder.y + offsetY) * sy;
+  const moduleX = finder.moduleSize * sx;
+  const moduleY = finder.moduleSize * sy;
+  const size = Math.max(22, Math.min(140, ((moduleX + moduleY) / 2) * 7.35));
+  const left = x - size / 2;
+  const top = y - size / 2;
+  const corner = Math.max(8, Math.min(18, size * 0.24));
+  const color = confirmed ? "rgba(77, 238, 137, 0.98)" : "rgba(250, 204, 92, 0.95)";
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = confirmed ? 2.4 : 1.8;
+  ctx.lineCap = "round";
+  ctx.shadowColor = confirmed ? "rgba(77, 238, 137, 0.42)" : "rgba(250, 204, 92, 0.28)";
+  ctx.shadowBlur = 8;
+
+  ctx.beginPath();
+  ctx.moveTo(left + corner, top); ctx.lineTo(left, top); ctx.lineTo(left, top + corner);
+  ctx.moveTo(left + size - corner, top); ctx.lineTo(left + size, top); ctx.lineTo(left + size, top + corner);
+  ctx.moveTo(left, top + size - corner); ctx.lineTo(left, top + size); ctx.lineTo(left + corner, top + size);
+  ctx.moveTo(left + size - corner, top + size); ctx.lineTo(left + size, top + size); ctx.lineTo(left + size, top + size - corner);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (label) {
+    ctx.font = "700 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    const textWidth = ctx.measureText(label).width;
+    const tx = Math.max(4, Math.min(left, cameraVideo.clientWidth - textWidth - 12));
+    const ty = Math.max(15, top - 7);
+    ctx.fillStyle = "rgba(3, 8, 11, 0.82)";
+    ctx.fillRect(tx - 4, ty - 11, textWidth + 8, 15);
+    ctx.fillStyle = color;
+    ctx.fillText(label, tx, ty);
+  }
+  ctx.restore();
+}
+
+function drawCameraFinderOverlay(diagnostic) {
+  const prepared = prepareOverlayCanvas();
+  if (!prepared) return;
+  const { ctx, width, height } = prepared;
+  const scanWidth = diagnostic?.scanWidth;
+  const scanHeight = diagnostic?.scanHeight;
+  if (!scanWidth || !scanHeight) return;
+  const frameWidth = diagnostic?.frameWidth ?? scanWidth;
+  const frameHeight = diagnostic?.frameHeight ?? scanHeight;
+  const scanRect = diagnostic?.scanRect ?? { x: 0, y: 0, width: scanWidth, height: scanHeight };
+  const sx = width / frameWidth;
+  const sy = height / frameHeight;
+  const offsetX = scanRect.x ?? 0;
+  const offsetY = scanRect.y ?? 0;
+  const pass = bestDiagnosticPass(diagnostic);
+  if (!pass) return;
+
+  const geometry = pass.geometries?.[0] ?? diagnostic.geometry;
+  if (geometry?.finders) {
+    const points = [
+      [geometry.finders.topLeft, "TL"],
+      [geometry.finders.topRight, "TR"],
+      [geometry.finders.bottomLeft, "BL"]
+    ];
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(77, 238, 137, 0.35)";
+    ctx.lineWidth = 1.25;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo((points[0][0].x + offsetX) * sx, (points[0][0].y + offsetY) * sy);
+    ctx.lineTo((points[1][0].x + offsetX) * sx, (points[1][0].y + offsetY) * sy);
+    ctx.moveTo((points[0][0].x + offsetX) * sx, (points[0][0].y + offsetY) * sy);
+    ctx.lineTo((points[2][0].x + offsetX) * sx, (points[2][0].y + offsetY) * sy);
+    ctx.stroke();
+    ctx.restore();
+
+    for (const [finder, label] of points) drawFinderBox(ctx, finder, sx, sy, label, true, offsetX, offsetY);
+    return;
+  }
+
+  const candidates = (pass.finders ?? []).slice(0, 6);
+  for (let i = 0; i < candidates.length; i++) {
+    drawFinderBox(ctx, candidates[i], sx, sy, `F${i + 1}`, false, offsetX, offsetY);
+  }
+}
+
+function updateCameraDiagnosticSummary(diagnostic) {
+  if (!diagnostic) return;
+  let active = diagnostic.type === "frame" ? diagnostic : (lastCameraFrameDiagnostic ?? diagnostic);
+  if (diagnostic.type === "frame") {
+    const current = lastCameraFrameDiagnostic;
+    const staleRecovery = Boolean(
+      diagnostic.recoveryWorker &&
+      current?.fastWorker &&
+      Number(current.frame) > Number(diagnostic.frame)
+    );
+    if (staleRecovery) active = current;
+    else lastCameraFrameDiagnostic = diagnostic;
+  }
+  const pass = bestDiagnosticPass(active);
+  const finderCount = Math.min(3, active.finderCount ?? pass?.finderCount ?? 0);
+  const geometry = active.geometry ?? pass?.geometries?.[0] ?? null;
+  const method = friendlyScanMethod(diagnostic.method ?? active.method);
+  const finderMethod = active.finderMethod ?? pass?.finderMethod ?? null;
+  const finderMethodText = friendlyFinderMethod(finderMethod);
+
+  cameraMethodStat.textContent = finderMethodText ? `${method} · ${finderMethodText}` : method;
+  cameraFinderStat.textContent = `${finderCount} / 3`;
+  cameraGeometryStat.textContent = geometry
+    ? `v${geometry.version} · ${Math.round((geometry.alignmentGridScore ?? geometry.alignmentScore ?? 0) * 100)}%`
+    : (finderCount >= 3 ? "Validating" : "Not found");
+  cameraFrameStat.textContent = active.frame
+    ? `#${active.frame}${active.elapsedMs != null ? ` · ${Math.round(active.elapsedMs)} ms` : ""}`
+    : "--";
+
+  cameraFinderHud.textContent = `Finders ${finderCount}/3`;
+  cameraFinderHud.classList.toggle("found", finderCount >= 3);
+  cameraHudText.textContent = geometry ? `${method} · v${geometry.version}` : method;
+  cameraLiveHud.classList.toggle("found", finderCount >= 3);
+  cameraLiveHud.classList.toggle("scanning", diagnostic.state !== "decoded" && finderCount < 3);
+
+  if (active.scanWidth && active.scanHeight) drawCameraFinderOverlay(active);
+}
+
+function handleCameraDiagnostic(diagnostic) {
+  const now = performance.now();
+  if (diagnostic.type !== "frame" || now - lastCameraUiUpdate >= 120) {
+    updateCameraDiagnosticSummary(diagnostic);
+    lastCameraUiUpdate = now;
+  }
+
+  const pass = bestDiagnosticPass(diagnostic);
+  const finderCount = diagnostic.finderCount ?? pass?.finderCount ?? 0;
+  const geometry = diagnostic.geometry ?? pass?.geometries?.[0] ?? null;
+
+  if (diagnostic.type === "camera-ready") {
+    appendCameraLog(diagnostic.message, "good", "camera-ready");
+    return;
+  }
+
+  if (diagnostic.type === "method") {
+    appendCameraLog(
+      diagnostic.message,
+      diagnostic.state === "failed" ? "warn" : "",
+      `${diagnostic.method}:${diagnostic.state}`
+    );
+    return;
+  }
+
+  if (diagnostic.type === "success") {
+    cameraLiveHud.classList.add("locked");
+    appendCameraLog(diagnostic.message, "good", `success:${diagnostic.method}`);
+    return;
+  }
+
+  if (diagnostic.type === "frame") {
+    const geometryText = geometry
+      ? ` · v${geometry.version} geometry ${Math.round((geometry.alignmentGridScore ?? geometry.alignmentScore ?? 0) * 100)}%`
+      : "";
+    const finderText = `${finderCount} finder${finderCount === 1 ? "" : "s"}`;
+    const method = friendlyScanMethod(diagnostic.method);
+    const finderMethod = diagnostic.finderMethod ?? pass?.finderMethod ?? null;
+    const finderMethodText = friendlyFinderMethod(finderMethod);
+    const finderPasses = Array.isArray(diagnostic.finderPasses) ? diagnostic.finderPasses : [];
+    const passSummary = finderPasses.length > 1
+      ? ` · locator ${finderPasses.map((item) => `${friendlyFinderMethod(item.method)}:${item.finderCount}`).join(" → ")}`
+      : (finderMethodText ? ` · locator ${finderMethodText}` : "");
+
+    const bucket = finderCount >= 3 ? "3+" : String(finderCount);
+    const signature = `frame:${bucket}:${geometry?.version ?? "none"}:${Math.floor((diagnostic.missStreak ?? 0) / 8)}`;
+    if (signature !== lastCameraLogSignature) {
+      appendCameraLog(
+        `${method} · ${finderText}${geometryText}${passSummary} · ${Math.round(diagnostic.elapsedMs ?? 0)} ms`,
+        finderCount >= 3 ? "good" : "muted",
+        signature
+      );
+    }
+  }
+}
+
+async function copyCameraDiagnostics() {
+  const snapshot = [
+    `QuadQR camera diagnostics`,
+    `Method: ${cameraMethodStat.textContent}`,
+    `Finders: ${cameraFinderStat.textContent}`,
+    `Geometry: ${cameraGeometryStat.textContent}`,
+    `Frame: ${cameraFrameStat.textContent}`,
+    "",
+    ...cameraLogLines
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(snapshot);
+    copyCameraLogBtn.textContent = "Copied";
+    setTimeout(() => { copyCameraLogBtn.textContent = "Copy log"; }, 1200);
+  } catch {
+    copyCameraLogBtn.textContent = "Copy failed";
+    setTimeout(() => { copyCameraLogBtn.textContent = "Copy log"; }, 1200);
+  }
+}
+
+async function stopCamera() {
+  cameraController?.stop();
+  cameraController = null;
+  clearFrozenCameraFrame();
+  startCameraBtn.disabled = false;
+  stopCameraBtn.disabled = true;
+  setPill(cameraPill, "neutral", "Stopped");
+  cameraHudText.textContent = "Stopped";
+  cameraLiveHud.classList.remove("scanning", "found", "locked");
+  clearCameraOverlay();
+  appendCameraLog("Camera stopped", "muted", "camera-stopped");
+}
+
+function activateTab(tabName) {
+  for (const button of tabButtons) {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  }
+  for (const view of tabViews) {
+    const active = view.dataset.view === tabName;
+    view.classList.toggle("active", active);
+    view.hidden = !active;
+  }
+  if (tabName !== "camera" && cameraController) stopCamera();
+  if (tabName === "camera") analysisWorker.reset("Camera uses its dedicated Rust/WASM scanner.");
+}
+
+for (const button of tabButtons) {
+  button.addEventListener("click", () => activateTab(button.dataset.tab));
+}
+
+
+generateBtn.addEventListener("click", generate);
+scanabilityBtn.addEventListener("click", runScanabilityTest);
+compressionModeEl.addEventListener("change", () => {
+  updateCompressionUi();
+  if (currentCode) generate();
+});
+compressionLevelEl.addEventListener("change", () => currentCode && generate());
+signPayloadEl.addEventListener("change", () => { updateSigningUi(); generate(); });
+signingKeyIdEl.addEventListener("change", () => signPayloadEl.checked && generate());
+generateSigningKeyBtn.addEventListener("click", async () => {
+  generateSigningKeyBtn.disabled = true;
+  signingKeyStatusEl.textContent = "Generating…";
+  try {
+    signingKeyPair = await generateSigningKeyPair();
+    signingKeyIdEl.value = signingKeyPair.keyId;
+    updateSigningUi();
+    if (signPayloadEl.checked) await generate();
+  } catch (error) {
+    signingKeyStatusEl.textContent = error.message;
+  } finally {
+    generateSigningKeyBtn.disabled = false;
+  }
+});
+renderModeEl.addEventListener("change", () => { updateRenderModeUi(); rerenderCurrentCode(); });
+securityModeEl.addEventListener("change", () => {
+  updateSecurityUi();
+  currentCode = null;
+  currentRenderOptions = null;
+  downloadBtn.disabled = true;
+  downloadSvgBtn.disabled = true;
+  setPill(verificationPill, "neutral", "Security changed");
+});
+generateRawKeyBtn.addEventListener("click", () => {
+  securityRawKeyEl.value = bytesToHex(generateRaw256Key());
+  securityRawKeyEl.focus();
+});
+imageSizeEl.addEventListener("change", () => currentCode && rerenderCurrentCode());
+quietZoneEl.addEventListener("change", () => currentCode && rerenderCurrentCode());
+logoSizeEl.addEventListener("change", () => currentCode && rerenderCurrentCode());
+logoClearBackgroundEl.addEventListener("change", () => currentCode && rerenderCurrentCode());
+logoEnabledEl.addEventListener("change", () => currentCode && rerenderCurrentCode());
+removeLogoBtn.addEventListener("click", async () => {
+  currentLogoImage = null;
+  currentLogoDataUrl = null;
+  logoFileEl.value = "";
+  updateLogoUploadUi();
+  if (currentCode) await rerenderCurrentCode();
+});
+logoFileEl.addEventListener("change", async () => {
+  const file = logoFileEl.files?.[0];
+  if (!file) {
+    currentLogoImage = null;
+    currentLogoDataUrl = null;
+    updateLogoUploadUi();
+    if (currentCode) rerenderCurrentCode();
+    return;
+  }
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const image = await loadImage(dataUrl);
+    currentLogoDataUrl = dataUrl;
+    currentLogoImage = image;
+    logoEnabledEl.checked = true;
+    updateLogoUploadUi(file);
+    await rerenderCurrentCode();
+  } catch (error) {
+    currentLogoImage = null;
+    currentLogoDataUrl = null;
+    logoFileEl.value = "";
+    updateLogoUploadUi();
+    showError(error.message);
+  }
+});
+renderStyleEl.addEventListener("change", () => {
+  const hints = {
+    classic: "Classic keeps every module fully solid. Styles only change rendering, never the encoded data.",
+    depth: "Depth deterministically mixes solid and lightly faded data tiles with subtle edge shading. Structural and calibration cells stay solid.",
+    soft: "Soft rounds only data tiles while keeping locator, timing, alignment, and calibration structures square and solid.",
+    inset: "Inset uses narrow recessed edge lighting while preserving the exact R/G/B/W center of every data tile."
+  };
+  styleHintEl.textContent = hints[renderStyleEl.value] || hints.classic;
+  if (currentCode) rerenderCurrentCode();
+});
+eccLevelEl.addEventListener("change", () => {
+  rebuildVersions();
+  generate();
+});
+highDensityModeEl.addEventListener("change", () => {
+  rebuildVersions();
+  generate();
+});
+
+downloadBtn.addEventListener("click", () => {
+  if (!currentCode) return;
+  const link = document.createElement("a");
+  link.download = `quadqr-v${currentCode.version}-${currentCode.eccLevel}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+});
+
+downloadSvgBtn.addEventListener("click", () => {
+  if (!currentCode) return;
+  const svg = renderToSVG(currentCode, generatorRenderOptions({ svg: true }));
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = `quadqr-v${currentCode.version}-${currentCode.eccLevel}.svg`;
+  link.href = url;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+});
+
+scanFileEl.addEventListener("change", async () => {
+  const file = scanFileEl.files?.[0];
+  if (!file) return;
+  scanResultEl.className = "scan-result";
+  scanResultEl.textContent = "Decoding image…";
+  scanDebugOutputEl.classList.add("hidden");
+
+  try {
+    const imageData = await imageFileToImageData(file);
+    scanResultEl.textContent = "Scanning image in the background…";
+    analysisWorker.reset("Starting uploaded image scan.");
+    scanabilityRevision++;
+    let result = await analysisWorker.run(
+      "scan",
+      {
+        imageData: transferableImageData(imageData),
+        options: { debug: scanDebugEl.checked }
+      },
+      [imageData.data.buffer]
+    );
+    if (result.signed && !result.requiresDecryption) result = await tryVerifyWithDemoKey(result);
+    formatResult(scanResultEl, result, "Verified QuadQR");
+    if (scanDebugEl.checked) {
+      scanDebugOutputEl.textContent = JSON.stringify(result.diagnostics, null, 2);
+      scanDebugOutputEl.classList.remove("hidden");
+    }
+  } catch (error) {
+    scanResultEl.className = "scan-result bad";
+    scanResultEl.textContent = error.message;
+    if (scanDebugEl.checked && error.debug) {
+      scanDebugOutputEl.textContent = JSON.stringify(error.debug, null, 2);
+      scanDebugOutputEl.classList.remove("hidden");
+    }
+  }
+});
+
+startCameraBtn.addEventListener("click", async () => {
+  if (cameraController) return;
+  startCameraBtn.disabled = true;
+  clearFrozenCameraFrame();
+  resetCameraDiagnosticsUi();
+  resetCameraLog();
+  cameraHudText.textContent = "Requesting camera";
+  cameraLiveHud.classList.add("scanning");
+  cameraResultEl.className = "scan-result";
+  cameraResultEl.textContent = "Requesting camera permission...";
+  setPill(cameraPill, "neutral", "Starting");
+
+  try {
+    await scannerWasmReady;
+    cameraController = await startCameraScanner(cameraVideo, {
+      scanInterval: 33,
+      maxDimension: 960,
+      cameraWorkerReadyTimeoutMs: 8000,
+      // Keep the live camera on the proven baseline WASM path. Threaded Rayon
+      // remains available as an explicit library option, but is not part of
+      // the camera startup critical path while browser worker support varies.
+      wasmThreads: false,
+      stopOnResult: true,
+      onDiagnostic: handleCameraDiagnostic,
+      onResult(result, frameMeta) {
+        freezeCapturedCameraFrame(frameMeta);
+        if (frameMeta?.diagnostic) {
+          lastCameraFrameDiagnostic = {
+            type: "frame",
+            state: "decoded",
+            frame: frameMeta.frame,
+            ...frameMeta.diagnostic
+          };
+          drawCameraFinderOverlay(lastCameraFrameDiagnostic);
+        }
+        void tryVerifyWithDemoKey(result).then((checkedResult) => {
+          formatResult(cameraResultEl, checkedResult, "Camera scan verified", {
+            onSecurityState(state) {
+              if (state === "locked") setPill(cameraPill, "neutral", "Secure QR");
+              else if (state === "decrypted") setPill(cameraPill, "good", "Decrypted");
+              else setPill(cameraPill, "good", "Decoded");
+            }
+          });
+        });
+        cameraHudText.textContent = `Decoded v${result.version}`;
+        cameraLiveHud.classList.remove("scanning");
+        cameraLiveHud.classList.add("locked");
+        cameraController = null;
+        startCameraBtn.disabled = false;
+        stopCameraBtn.disabled = true;
+      },
+      onScanMiss() {
+        if (cameraController) setPill(cameraPill, "neutral", "Searching");
+      }
+    });
+
+    stopCameraBtn.disabled = false;
+    cameraResultEl.className = "scan-result empty";
+    cameraResultEl.textContent = "Point the camera at a QuadQR code.";
+    setPill(cameraPill, "neutral", "Searching");
+  } catch (error) {
+    cameraController = null;
+    startCameraBtn.disabled = false;
+    stopCameraBtn.disabled = true;
+    setPill(cameraPill, "bad", "Camera error");
+    cameraHudText.textContent = "Camera error";
+    cameraLiveHud.classList.remove("scanning", "found", "locked");
+    clearCameraOverlay();
+    appendCameraLog(`Camera error · ${error.message}`, "warn", `camera-error:${error.message}`);
+    cameraResultEl.className = "scan-result bad";
+    cameraResultEl.textContent = error.message;
+  }
+});
+
+copyCameraLogBtn.addEventListener("click", copyCameraDiagnostics);
+window.addEventListener("resize", () => {
+  if (lastCameraFrameDiagnostic) drawCameraFinderOverlay(lastCameraFrameDiagnostic);
+});
+stopCameraBtn.addEventListener("click", stopCamera);
+benchmarkEccEl.addEventListener("change", renderCapacityBenchmark);
+runBenchmarkBtn.addEventListener("click", runBenchmark);
+calculateCapacityBtn.addEventListener("click", calculateCapacityUi);
+reliabilityPreviewCloseBtn?.addEventListener("click", () => reliabilityPreviewDialog?.close());
+reliabilityPreviewDialog?.addEventListener("click", (event) => {
+  if (event.target === reliabilityPreviewDialog) reliabilityPreviewDialog.close();
+});
+
+runReliabilityBtn.addEventListener("click", runReliabilityUi);
+perspectivePitchEl.addEventListener("input", updatePerspectiveLabels);
+perspectiveYawEl.addEventListener("input", updatePerspectiveLabels);
+perspectiveRollEl.addEventListener("input", updatePerspectiveLabels);
+testPerspectiveBtn.addEventListener("click", testPerspectiveUi);
+runPerspectiveSweepBtn.addEventListener("click", runPerspectiveSweepUi);
+window.addEventListener("pagehide", () => {
+  cameraController?.stop();
+  analysisWorker.reset("Page closed.");
+});
+
+resetCameraDiagnosticsUi();
+updateLogoUploadUi();
+updateCompressionUi();
+updateSecurityUi();
+updateSigningUi();
+updateRenderModeUi();
+rebuildVersions();
+renderCapacityBenchmark();
+calculateCapacityUi();
+updatePerspectiveLabels();
+generate();

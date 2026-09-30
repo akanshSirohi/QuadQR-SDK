@@ -1,0 +1,16 @@
+name: quadqr_flutter_example
+description: Example app for quadqr_flutter.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  quadqr_flutter:
+    path: ../
+
+flutter:
+  uses-material-design: true

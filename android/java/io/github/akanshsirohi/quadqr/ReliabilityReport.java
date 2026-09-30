@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import java.util.*; import org.json.*;
+public final class ReliabilityReport { private final JSONObject r; ReliabilityReport(JSONObject r){this.r=r;}public double getScore(){return r.optDouble("score");}public String getRating(){return r.optString("rating");}public int getPassed(){return r.optInt("passed");}public int getTotal(){return r.optInt("total");}public java.util.List<ReliabilityScenario> getScenarios(){JSONArray a=r.optJSONArray("scenarios");java.util.List<ReliabilityScenario> out=new java.util.ArrayList<>();if(a!=null)for(int i=0;i<a.length();i++){JSONObject v=a.optJSONObject(i);if(v!=null)out.add(new ReliabilityScenario(v));}return java.util.Collections.unmodifiableList(out);} }

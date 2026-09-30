@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class SecurityInfo { private final JSONObject r; SecurityInfo(JSONObject r){this.r=r;} public String getMode(){return r.optString("mode");}public int getIterations(){return r.optInt("iterations");}public String getKeyId(){return r.optString("keyId",null);}public String getKeyIdHex(){return r.optString("keyIdHex");}public boolean isKeyIdAuto(){return r.optBoolean("keyIdAuto");}public int getPlaintextBytes(){return r.optInt("plaintextBytes");}public int getEnvelopeBytes(){return r.optInt("envelopeBytes");}public String getAlgorithm(){return r.optString("algorithm");} }

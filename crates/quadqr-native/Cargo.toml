@@ -1,0 +1,21 @@
+[package]
+name = "quadqr-native"
+version = "0.1.0"
+description = "Combined Android native bridge for QuadQR (Dart FFI + Java/Kotlin JNI)"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "quadqr"
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+quadqr = { path = "../quadqr", default-features = false, features = ["image", "compression", "security", "parallel"] }
+image = { workspace = true, features = ["png", "jpeg", "webp"] }
+serde_json = "1"
+base64 = "0.22"
+jni = "0.22.4"

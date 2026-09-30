@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class PrintGuidance { private final JSONObject r; PrintGuidance(JSONObject r){this.r=r;}public double getPhysicalSizeMm(){return r.optDouble("physicalSizeMm");}public int getQuietZone(){return r.optInt("quietZone");}public double getModuleSizeMm(){return r.optDouble("moduleSizeMm");}public double getModulePixelsAtDpi(){return r.optDouble("modulePixelsAtDpi");}public double getDpi(){return r.optDouble("dpi");}public boolean meetsRecommendedModuleSize(){return r.optBoolean("meetsRecommendedModuleSize");}public double getRecommendedMinimumPhysicalSizeMm(){return r.optDouble("recommendedMinimumPhysicalSizeMm");} }

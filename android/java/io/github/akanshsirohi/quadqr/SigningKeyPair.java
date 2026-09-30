@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class SigningKeyPair { private final byte[] seed,pkcs8,publicKey,keyId; private final String keyIdHex; SigningKeyPair(JSONObject r){seed=JsonSupport.byteArray(r.optJSONArray("privateKeySeed"));pkcs8=JsonSupport.byteArray(r.optJSONArray("privateKeyPkcs8"));publicKey=JsonSupport.byteArray(r.optJSONArray("publicKey"));keyId=JsonSupport.byteArray(r.optJSONArray("keyId"));keyIdHex=r.optString("keyIdHex");} public byte[] getPrivateKeySeed(){return seed.clone();}public byte[] getPrivateKeyPkcs8(){return pkcs8.clone();}public byte[] getPublicKey(){return publicKey.clone();}public byte[] getKeyId(){return keyId.clone();}public String getKeyIdHex(){return keyIdHex;} }

@@ -1,0 +1,9 @@
+package io.github.akanshsirohi.quadqr;
+import org.json.JSONObject;
+public final class RenderOptions {
+    final Integer moduleSize,imageSize,quietZone; final RenderMode mode; final RenderStyle style; final Boolean allowStyledPrint; final Palette palette; final LogoOptions logo;
+    private RenderOptions(Builder b){moduleSize=b.moduleSize;imageSize=b.imageSize;quietZone=b.quietZone;mode=b.mode;style=b.style;allowStyledPrint=b.allowStyledPrint;palette=b.palette;logo=b.logo;}
+    public static Builder builder(){return new Builder();} public static RenderOptions defaults(){return builder().build();}
+    public static final class Builder {Integer moduleSize,imageSize,quietZone;RenderMode mode=RenderMode.SCREEN;RenderStyle style=RenderStyle.CLASSIC;Boolean allowStyledPrint;Palette palette;LogoOptions logo;public Builder moduleSize(int v){moduleSize=v;return this;}public Builder imageSize(int v){imageSize=v;return this;}public Builder quietZone(int v){quietZone=v;return this;}public Builder mode(RenderMode v){mode=v;return this;}public Builder style(RenderStyle v){style=v;return this;}public Builder allowStyledPrint(boolean v){allowStyledPrint=v;return this;}public Builder palette(Palette v){palette=v;return this;}public Builder logo(LogoOptions v){logo=v;return this;}public RenderOptions build(){return new RenderOptions(this);}}
+    JSONObject toJson(){try{JSONObject o=new JSONObject().put("mode",mode.value).put("style",style.value);if(moduleSize!=null)o.put("moduleSize",moduleSize);if(imageSize!=null)o.put("imageSize",imageSize);if(quietZone!=null)o.put("quietZone",quietZone);if(allowStyledPrint!=null)o.put("allowStyledPrint",allowStyledPrint);if(palette!=null)o.put("palette",palette.toJson());if(logo!=null)o.put("logo",logo.toJson());return o;}catch(Exception e){throw new QuadQRException(e.getMessage(),e);}}
+}

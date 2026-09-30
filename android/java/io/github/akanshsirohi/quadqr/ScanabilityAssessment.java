@@ -1,0 +1,3 @@
+package io.github.akanshsirohi.quadqr;
+import java.util.*; import org.json.*;
+public final class ScanabilityAssessment { private final JSONObject r;ScanabilityAssessment(JSONObject r){this.r=r;}public double getScore(){return r.optDouble("score");}public String getRating(){return r.optString("rating");}public ReliabilityReport getReport(){JSONObject v=r.optJSONObject("report");return v==null?null:new ReliabilityReport(v);}public java.util.List<String> getRecommendations(){JSONArray a=r.optJSONArray("recommendations");java.util.List<String> out=new java.util.ArrayList<>();if(a!=null)for(int i=0;i<a.length();i++)out.add(a.optString(i));return java.util.Collections.unmodifiableList(out);} }

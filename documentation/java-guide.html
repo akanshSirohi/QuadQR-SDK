@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="QuadQR SDK documentation for Rust, Android, Flutter, and experimental WebAssembly."><title>Java API | QuadQR documentation</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="vendor/highlightjs/github-dark.min.css"><link rel="icon" href="assets/quadqr_ic.svg" type="image/svg+xml"></head>
+<body><header class="topbar"><button class="icon-button menu-button" id="menu-button" aria-label="Open navigation" type="button">☰</button><a class="brand" href="index.html"><img class="brand-icon" src="assets/quadqr_ic.svg" alt="">QuadQR <small>SDK documentation</small></a><nav class="top-links" aria-label="Top links"><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR-SDK">Repository</a><a class="desktop-link" href="https://github.com/akanshSirohi/QuadQR">Original JS</a><button class="icon-button" id="theme-button" aria-label="Toggle color theme" type="button">◐</button></nav></header>
+<div class="shell"><aside class="sidebar" id="site-nav" aria-label="Documentation navigation"></aside><main class="content"><article class="article"><header><span class="eyebrow">Source guide</span><h1>Java API</h1><p class="lead">The complete Java guide for the Android AAR.</p></header><p>This guide uses the public object-oriented Android API. Application code should use <code>QuadQR</code> and the option/result classes shown below.</p>
+<h2 id="1-create-a-quadqr-instance">1. Create a QuadQR instance</h2>
+<pre><code class="language-java">import io.github.akanshsirohi.quadqr.*;
+
+QuadQR quadQR = QuadQR.getInstance();
+</code></pre>
+<p><code>QuadQR</code> is reusable. Keep one instance in your repository, service or application component instead of creating wrappers around every call.</p>
+<h2 id="2-encode-text">2. Encode text</h2>
+<p>The smallest call uses safe defaults:</p>
+<pre><code class="language-java">EncodedQr code = quadQR.encodeText(&quot;Hello Android&quot;);
+</code></pre>
+<p>For explicit settings, use <code>EncodeOptions</code>:</p>
+<pre><code class="language-java">EncodeOptions options = EncodeOptions.builder()
+    .ecc(EccLevel.M)
+    .highDensity(false)
+    .compression(CompressionMode.AUTO)
+    .build();
+
+EncodedQr code = quadQR.encodeText(&quot;Hello Android&quot;, options);
+
+int version = code.getVersion();
+int size = code.getSize();
+long crc = code.getCrc32();
+int[][] matrix = code.getMatrix();
+</code></pre>
+<p>High-density mode:</p>
+<pre><code class="language-java">EncodedQr dense = quadQR.encodeText(
+    &quot;Higher density payload&quot;,
+    EncodeOptions.builder()
+        .ecc(EccLevel.Q)
+        .highDensity(true)
+        .compression(CompressionMode.SMART)
+        .build()
+);
+</code></pre>
+<p>You can constrain symbol versions with <code>.version(8)</code> or a range with <code>.minVersion(4).maxVersion(20)</code>.</p>
+<h2 id="3-encode-binary-data">3. Encode binary data</h2>
+<pre><code class="language-java">byte[] payload = ...;
+EncodedQr code = quadQR.encodeBytes(
+    payload,
+    EncodeOptions.builder()
+        .ecc(EccLevel.M)
+        .compression(CompressionMode.BROTLI)
+        .compressionLevel(8)
+        .build()
+);
+</code></pre>
+<h2 id="4-render-png-or-svg">4. Render PNG or SVG</h2>
+<pre><code class="language-java">RenderOptions render = RenderOptions.builder()
+    .imageSize(720)
+    .quietZone(4)
+    .style(RenderStyle.CLASSIC)
+    .build();
+
+byte[] png = quadQR.renderPng(code, render);
+String svg = quadQR.renderSvg(code, render);
+</code></pre>
+<p>Custom palette:</p>
+<pre><code class="language-java">Palette palette = Palette.builder()
+    .red(&quot;#E53935&quot;)
+    .green(&quot;#20A464&quot;)
+    .blue(&quot;#2667FF&quot;)
+    .build();
+
+RenderOptions render = RenderOptions.builder()
+    .moduleSize(10)
+    .palette(palette)
+    .style(RenderStyle.SOFT)
+    .build();
+</code></pre>
+<h3 id="logo-rendering">Logo rendering</h3>
+<pre><code class="language-java">LogoOptions logo = LogoOptions.builder()
+    .autoSize()
+    .padding(0.65)
+    .radius(0.8)
+    .clearBackground(true)
+    .build();
+
+RenderOptions render = RenderOptions.builder()
+    .imageSize(720)
+    .logo(logo)
+    .build();
+
+byte[] logoBytes = ...;
+byte[] png = quadQR.renderPng(code, render, logoBytes);
+</code></pre>
+<p>Check a recommended size before rendering:</p>
+<pre><code class="language-java">LogoSizeResult recommendation = quadQR.estimateSafeLogoSize(code, render);
+double safeRatio = recommendation.getSafeSize();
+</code></pre>
+<p>For an empirical check using a real logo image:</p>
+<pre><code class="language-java">LogoSizeResult measured = quadQR.findMaxSafeLogoSize(
+    code,
+    logoBytes,
+    render,
+    0.05,
+    0.28,
+    7
+);
+</code></pre>
+<h2 id="5-scan-an-image">5. Scan an image</h2>
+<p><code>scanImage</code> accepts encoded PNG, JPEG or WebP bytes.</p>
+<pre><code class="language-java">byte[] imageBytes = ...;
+ScanResult result = quadQR.scanImage(imageBytes);
+
+String text = result.getText();
+System.out.println(&quot;Decoded: &quot; + text);
+System.out.println(&quot;Path: &quot; + result.getScanPath());
+System.out.println(&quot;Corrected symbols: &quot; + result.getCorrectedSymbols());
+</code></pre>
+<p>Custom scan behavior:</p>
+<pre><code class="language-java">ScanOptions scanOptions = ScanOptions.builder()
+    .finderRecovery(true)
+    .rotationRecovery(true)
+    .softDecoding(true)
+    .maxFinderCandidates(32)
+    .build();
+
+ScanResult result = quadQR.scanImage(imageBytes, scanOptions);
+</code></pre>
+<h2 id="6-scan-camera-rgba-frames">6. Scan camera RGBA frames</h2>
+<p>Pass RGBA bytes directly from your camera pipeline:</p>
+<pre><code class="language-java">byte[] rgba = ...;
+int width = ...;
+int height = ...;
+
+ScanResult result = quadQR.scanRgba(
+    rgba,
+    width,
+    height,
+    ScanOptions.builder()
+        .finderRecovery(true)
+        .rotationRecovery(true)
+        .build()
+);
+</code></pre>
+<p>For continuous camera scanning, process frames on a worker thread and avoid starting multiple scans for the same frame at the same time.</p>
+<h2 id="7-matrix-decoding">7. Matrix decoding</h2>
+<pre><code class="language-java">DecodedQr decoded = quadQR.decodeMatrix(code.getMatrix());
+System.out.println(decoded.getText());
+</code></pre>
+<p>Binary application payload:</p>
+<pre><code class="language-java">byte[] decodedBytes = quadQR.decodePayload(
+    code.getMatrix(),
+    DecodeOptions.defaults()
+);
+</code></pre>
+<p>Rotation helper:</p>
+<pre><code class="language-java">int[][] rotated = quadQR.rotateMatrix(code.getMatrix(), 1);
+</code></pre>
+<h2 id="8-encryption">8. Encryption</h2>
+<h3 id="password-based-encryption">Password-based encryption</h3>
+<pre><code class="language-java">SecurityOptions security = SecurityOptions.password(&quot;correct horse battery staple&quot;);
+
+EncodedQr secured = quadQR.encodeText(
+    &quot;Private message&quot;,
+    EncodeOptions.builder()
+        .security(security)
+        .compression(CompressionMode.AUTO)
+        .build()
+);
+</code></pre>
+<p>When a secure code is scanned, inspect <code>requiresDecryption()</code>:</p>
+<pre><code class="language-java">ScanResult scanned = quadQR.scanImage(imageBytes);
+if (scanned.requiresDecryption()) {
+    ApplicationPayload plain = quadQR.decrypt(scanned, security);
+    System.out.println(plain.getText());
+}
+</code></pre>
+<h3 id="raw-256-bit-key">Raw 256-bit key</h3>
+<pre><code class="language-java">RawKey generated = quadQR.generateRaw256Key();
+SecurityOptions security = SecurityOptions.rawKey(generated.getBytes());
+</code></pre>
+<p>Keep encryption keys in an appropriate secure storage mechanism for your application.</p>
+<h2 id="9-ed25519-signing">9. Ed25519 signing</h2>
+<p>Generate a signing keypair:</p>
+<pre><code class="language-java">SigningKeyPair keys = quadQR.generateSigningKeyPair();
+</code></pre>
+<p>Sign during encoding:</p>
+<pre><code class="language-java">SigningOptions signing = SigningOptions.builder(keys.getPrivateKeySeed())
+    .embedPublicKey(false)
+    .build();
+
+EncodedQr signed = quadQR.encodeText(
+    &quot;Signed payload&quot;,
+    EncodeOptions.builder()
+        .signing(signing)
+        .build()
+);
+</code></pre>
+<p>Verify after scanning:</p>
+<pre><code class="language-java">ScanResult scanned = quadQR.scanImage(imageBytes);
+boolean valid = quadQR.verifySignature(
+    scanned,
+    keys.getPublicKey(),
+    false
+);
+</code></pre>
+<p>For an encrypted and signed payload:</p>
+<pre><code class="language-java">ApplicationPayload payload = quadQR.decryptAndVerify(
+    scanned,
+    security,
+    keys.getPublicKey(),
+    false
+);
+
+if (payload.isVerified()) {
+    System.out.println(payload.getText());
+}
+</code></pre>
+<h2 id="10-compression-helpers">10. Compression helpers</h2>
+<pre><code class="language-java">byte[] compressed = quadQR.compress(
+    payload,
+    CompressionAlgorithm.BROTLI,
+    8
+);
+
+byte[] original = quadQR.decompress(
+    compressed,
+    CompressionAlgorithm.BROTLI
+);
+</code></pre>
+<h2 id="11-capacity-planning">11. Capacity planning</h2>
+<pre><code class="language-java">CapacityInfo v10 = quadQR.capacity(
+    10,
+    EccLevel.M,
+    CellEncoding.RGBW
+);
+
+System.out.println(v10.getQuadQrBytes());
+System.out.println(v10.getGainPercent());
+</code></pre>
+<p>Plan the best version for a real payload:</p>
+<pre><code class="language-java">CapacityPlan plan = quadQR.calculateCapacityPlan(
+    payload,
+    EncodeOptions.builder()
+        .ecc(EccLevel.M)
+        .highDensity(true)
+        .compression(CompressionMode.AUTO)
+        .build()
+);
+
+System.out.println(&quot;Version: &quot; + plan.getQuadQrVersion());
+System.out.println(&quot;Utilization: &quot; + plan.getUtilizationPercent());
+</code></pre>
+<h2 id="12-print-guidance">12. Print guidance</h2>
+<pre><code class="language-java">PrintGuidance guidance = quadQR.getPrintGuidance(
+    code,
+    new PrintOptions(4, 35.0, 300.0, 0.40)
+);
+
+if (!guidance.meetsRecommendedModuleSize()) {
+    System.out.println(
+        &quot;Increase physical size to at least &quot; +
+        guidance.getRecommendedMinimumPhysicalSizeMm() + &quot; mm&quot;
+    );
+}
+</code></pre>
+<h2 id="13-reliability-tools">13. Reliability tools</h2>
+<pre><code class="language-java">ReliabilityReport report = quadQR.runReliabilityLab(
+    png,
+    code.getCrc32(),
+    ReliabilitySuite.FULL,
+    ScanOptions.defaults()
+);
+
+System.out.println(report.getScore());
+System.out.println(report.getRating());
+</code></pre>
+<p>Scanability assessment:</p>
+<pre><code class="language-java">ScanabilityAssessment assessment = quadQR.assessScanability(
+    code,
+    render,
+    ReliabilitySuite.QUICK,
+    ScanOptions.defaults()
+);
+</code></pre>
+<h2 id="error-handling">Error handling</h2>
+<p>Native validation and decode failures are surfaced as <code>QuadQRException</code>:</p>
+<pre><code class="language-java">try {
+    ScanResult result = quadQR.scanImage(imageBytes);
+} catch (QuadQRException e) {
+    Log.e(&quot;QuadQR&quot;, &quot;Scan failed&quot;, e);
+}
+</code></pre>
+<p>Use normal Android threading rules for expensive encoding, rendering, reliability tests and camera-frame processing.</p>
+<h2 id="complete-java-method-map">Complete Java method map</h2>
+<p>The public <code>QuadQR</code> wrapper currently exposes the full Android feature surface:</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Methods</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Runtime</td>
+<td><code>version</code>, <code>getVersionInfo</code></td>
+</tr>
+<tr>
+<td>Capacity</td>
+<td><code>capacity</code>, <code>calculateCapacityPlan</code></td>
+</tr>
+<tr>
+<td>Encode</td>
+<td><code>encodeText</code>, <code>encodeBytes</code></td>
+</tr>
+<tr>
+<td>Decode</td>
+<td><code>decodeMatrix</code>, <code>decodePayload</code>, <code>rotateMatrix</code>, <code>crc32</code></td>
+</tr>
+<tr>
+<td>Compression</td>
+<td><code>compress</code>, <code>decompress</code></td>
+</tr>
+<tr>
+<td>Encryption</td>
+<td><code>generateRaw256Key</code>, <code>inspectSecurePayload</code>, <code>decrypt</code></td>
+</tr>
+<tr>
+<td>Signing</td>
+<td><code>generateSigningKeyPair</code>, <code>deriveSigningKeyId</code>, <code>signingSeedFromPkcs8</code>, <code>verifySignature</code>, <code>decryptAndVerify</code></td>
+</tr>
+<tr>
+<td>Rendering</td>
+<td><code>renderPng</code>, <code>renderSvg</code>, <code>estimateSafeLogoSize</code>, <code>findMaxSafeLogoSize</code>, <code>getPrintGuidance</code></td>
+</tr>
+<tr>
+<td>Scanning</td>
+<td><code>scanImage</code>, <code>scanRgba</code>, <code>debugScanRgba</code>, <code>rectifyImage</code></td>
+</tr>
+<tr>
+<td>Reliability</td>
+<td><code>applyStressDistortion</code>, <code>runImageStressTest</code>, <code>runReliabilityLab</code>, <code>runPerspectiveSweep</code>, <code>assessScanability</code></td>
+</tr>
+</tbody>
+</table>
+<p>Advanced matrix decoding can also supply confidence and alternative-cell matrices:</p>
+<pre><code class="language-java">DecodeOptions decodeOptions = DecodeOptions.builder()
+    .softDecoding(true)
+    .confidence(confidenceMatrix)
+    .alternatives(alternativeMatrix)
+    .build();
+
+DecodedQr decoded = quadQR.decodeMatrix(matrix, decodeOptions);
+</code></pre>
+<p>If a decompressor knows the expected output size, it can provide it explicitly:</p>
+<pre><code class="language-java">byte[] original = quadQR.decompress(
+    compressed,
+    CompressionAlgorithm.LZ,
+    expectedLength
+);
+</code></pre>
+<h3 id="android-live-camera-performance">Android live-camera performance</h3>
+<p>RGBA camera scans now use an adaptive fast/deep cadence. Normal frames disable finder and rotation recovery; after three consecutive misses, every fourth attempt uses the full recovery stack. The full scanner working image is capped to 960 pixels on its longest edge by default. Set <code>workingMaxDimension</code> in <code>ScanOptions</code> to override the cap, or set it to <code>0</code> to keep the original frame size. Still-image <code>scanImage</code> behavior is unchanged.</p>
+<h2 id="direct-yuv_420_888-camera-scanning">Direct YUV_420_888 camera scanning</h2>
+<p><code>QuadQR.scanYuv420(...)</code> accepts the three Android camera planes plus their row/pixel strides. Prefer it for live CameraX/Camera2 frames when possible so the application does not first allocate a full RGBA copy. The same adaptive fast/deep camera recovery used by <code>scanRgba()</code> is applied.</p><footer class="footer"><span>QuadQR SDK · AGPL-3.0-only</span><span><a href="contributing.html">Contribute</a> · <a href="license.html">License</a></span></footer></article></main></div><script src="vendor/highlightjs/highlight.min.js"></script><script src="vendor/highlightjs/dart.min.js"></script><script src="vendor/highlightjs/dos.min.js"></script><script src="vendor/highlightjs/http.min.js"></script><script src="app.js"></script></body></html>

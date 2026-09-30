@@ -1,0 +1,44 @@
+group = "io.github.akanshsirohi.quadqr_flutter"
+version = "0.1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.10.1"
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "io.github.akanshsirohi.quadqr_flutter"
+    compileSdk = 36
+    ndkVersion = "30.0.16248370"
+
+    defaultConfig {
+        minSdk = 21
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+        }
+    }
+
+    sourceSets {
+        main {
+            // Native Rust libraries are synchronized here by the root build scripts.
+            jniLibs.srcDirs = ["src/main/jniLibs"]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
